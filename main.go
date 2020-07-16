@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	sccsql "golearn/gomysql"
+	sccredis "golearn/goredis"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -12,12 +13,19 @@ func main() {
 	// 1.创建路由
 	// 默认使用了2个中间件Logger(), Recovery()
 	r := gin.Default()
-	Db := sccsql.ConnectMysql("root", "root", "192.168.1.124", 3306, "freeswitch", "utf8mb4")
-	defer Db.Close()
-	xxx := sccsql.SelectData(Db, "select username,sex from person")
-	for k, v := range xxx {
-		fmt.Println(k, v)
+	var testsccmysql sccsql.Mysqlconnectpool
+	testsccmysql.Initmysql("192.168.1.124", "root", "root", "freeswitch", 3306)
+	test := testsccmysql.SelectData("select username,sex from person")
+	for k, v := range test {
+		fmt.Println("sssss is vvv is ", k, v)
 	}
+
+	var sjdtest sccredis.Redisconnectpool
+	sjdtest.Redisip = "192.168.1.124:6379"
+	sjdtest.Redispassword = "123456"
+	sjdtest.ConnectRedis()
+	rr, _ := sjdtest.SccredisGetmembernearby("118.32155", "31.123", 1000)
+	sjdtest.SccredisGetmembergpsinf(rr)
 
 	shoppingGroup := r.Group("/shopping")
 	{

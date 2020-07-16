@@ -9,9 +9,9 @@ import (
 
 type Redisconnectpool struct {
 	pool          *redis.Pool
-	redisip       string
-	redispassword string
-	redisname     string
+	Redisip       string
+	Redispassword string
+	Redisname     string
 }
 
 func (redispool *Redisconnectpool) ConnectRedis() {
@@ -22,7 +22,7 @@ func (redispool *Redisconnectpool) ConnectRedis() {
 			MaxActive:   0,   //连接池最大连接数量,不确定可以用0（0表示自动定义），按需分配
 			IdleTimeout: 300, //连接关闭时间 300秒 （300秒不使用自动关闭）
 			Dial: func() (redis.Conn, error) { //要连接的redis数据库
-				return redis.Dial("tcp", redispool.redisip, redis.DialPassword(redispool.redispassword))
+				return redis.Dial("tcp", redispool.Redisip, redis.DialPassword(redispool.Redispassword))
 			},
 		}
 	} else {

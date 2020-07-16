@@ -9,12 +9,38 @@ import (
 )
 
 //var Db *sqlx.DB
+type Mysqlconnectpool struct {
+	sqlpoint     *sqlx.DB
+	mysqlip      string
+	username     string
+	password     string
+	databasename string
+	mysqlport    int
+}
 
 func init() {
 
 }
-
-func Execsqlcmd(DB *sqlx.DB, sqlcmd string, async bool) (ret int) {
+func (mysqlpool *Mysqlconnectpool) Initmysql(mysqlip string, username string, password string, databasename string, mysqlport int) {
+	if nil == mysqlpool.sqlpoint {
+		mysqlpool.mysqlip = mysqlip
+		mysqlpool.username = username
+		mysqlpool.password = password
+		mysqlpool.databasename = databasename
+		mysqlpool.mysqlport = mysqlport
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s", mysqlpool.username, mysqlpool.password, mysqlpool.mysqlip, mysqlpool.mysqlport, mysqlpool.databasename, "utf8mb4")
+		Db, err := sqlx.Open("mysql", dsn)
+		if err != nil {
+			fmt.Printf("mysql connect failed, detail is [%v]", err.Error())
+		}
+		Db.SetMaxIdleConns(8)
+		Db.SetMaxOpenConns(8)
+		mysqlpool.sqlpoint = Db
+	} else {
+		fmt.Println("mysql point is not null,")
+	}
+}
+func (mysqlpool *Mysqlconnectpool) Execsqlcmd(sqlcmd string, async bool) (ret int) {
 	//如果是异步
 	execsccsql := func(DB *sqlx.DB, sqlcmd string) int {
 		r, err := DB.Exec(sqlcmd)
@@ -28,26 +54,26 @@ func Execsqlcmd(DB *sqlx.DB, sqlcmd string, async bool) (ret int) {
 		return -1
 	}
 	if async {
-		go execsccsql(DB, sqlcmd)
+		go execsccsql(mysqlpool.sqlpoint, sqlcmd)
 		return 0
 	} else {
-		return execsccsql(DB, sqlcmd)
+		return execsccsql(mysqlpool.sqlpoint, sqlcmd)
 	}
 	return 0
 }
 
-func ConnectMysql(username string, password string, ipAddress string, port int, dbName string, charset string) *sqlx.DB {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s", username, password, ipAddress, port, dbName, charset)
+func (mysqlpool *Mysqlconnectpool) connectMysql() {
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s", mysqlpool.username, mysqlpool.password, mysqlpool.mysqlip, mysqlpool.mysqlport, mysqlpool.databasename, "utf8mb4")
 	Db, err := sqlx.Open("mysql", dsn)
 	if err != nil {
 		fmt.Printf("mysql connect failed, detail is [%v]", err.Error())
 	}
 	Db.SetMaxIdleConns(8)
 	Db.SetMaxOpenConns(8)
-	return Db
+	mysqlpool.sqlpoint = Db
 }
-func Ping(Db *sqlx.DB) {
-	err := Db.Ping()
+func (mysqlpool *Mysqlconnectpool) Ping() {
+	err := mysqlpool.sqlpoint.Ping()
 	if err != nil {
 		fmt.Println("ping failed")
 	} else {
@@ -55,11 +81,11 @@ func Ping(Db *sqlx.DB) {
 	}
 }
 
-func SelectData(Db *sqlx.DB, sqlcmd string) (sccresult []map[string]string) {
+func (mysqlpool *Mysqlconnectpool) SelectData(sqlcmd string) (sccresult []map[string]string) {
 
 	//定义结构体切片，用来存放多条查询记录
 
-	rows, err := Db.Queryx(sqlcmd)
+	rows, err := mysqlpool.sqlpoint.Queryx(sqlcmd)
 	if err != nil {
 		fmt.Printf("query faied, error:[%v]", err.Error())
 		return
