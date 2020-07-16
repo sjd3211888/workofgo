@@ -1,19 +1,20 @@
-package main
+package sccredis
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/garyburd/redigo/redis"
 )
 
-type redisconnectpool struct {
+type Redisconnectpool struct {
 	pool          *redis.Pool
 	redisip       string
 	redispassword string
 	redisname     string
 }
 
-func (redispool *redisconnectpool) ConnectRedis() {
+func (redispool *Redisconnectpool) ConnectRedis() {
 	if nil == redispool.pool {
 		redispool.pool = &redis.Pool{ //实例化一个连接池
 			MaxIdle: 16, //最初的连接数量
@@ -28,17 +29,18 @@ func (redispool *redisconnectpool) ConnectRedis() {
 		fmt.Println("pool is not nil")
 	}
 }
-func (redispool *redisconnectpool) SccredisSet(key string, value string) {
+func (redispool *Redisconnectpool) SccredisSet(key string, value string) error {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 
 	_, err := c.Do("Set", key, value)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return err
 	}
+	return nil
 }
-func (redispool *redisconnectpool) SccredisGet(key string) (value string, err error) {
+func (redispool *Redisconnectpool) SccredisGet(key string) (string, error) {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 
@@ -49,7 +51,8 @@ func (redispool *redisconnectpool) SccredisGet(key string) (value string, err er
 	}
 	return r, err
 }
-func (redispool *redisconnectpool) SccredisHSet(key string, filed string, value string) (err1 error) {
+
+func (redispool *Redisconnectpool) SccredisHSet(key string, filed string, value string) error {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 	_, err := c.Do("HSet", key, filed, value)
@@ -60,7 +63,7 @@ func (redispool *redisconnectpool) SccredisHSet(key string, filed string, value 
 	}
 	return err
 }
-func (redispool *redisconnectpool) SccredisGetAll(key string) (value map[string]string, err1 error) {
+func (redispool *Redisconnectpool) SccredisGetAll(key string) (map[string]string, error) {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 
@@ -71,22 +74,33 @@ func (redispool *redisconnectpool) SccredisGetAll(key string) (value map[string]
 	}
 	return r, err
 }
-func (redispool *redisconnectpool) SccredisHdel(key string, field string) (err error) {
+func (redispool *Redisconnectpool) SccredisHdel(key string, field string) error {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 
-	_, err = c.Do("HDEL", key, field)
+	_, err := c.Do("HDEL", key, field)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
 	return err
 }
-func (redispool *redisconnectpool) SccredisDel(key string) (err error) {
+func (redispool *Redisconnectpool) SccredisDel(key string) error {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
 
-	_, err = c.Do("del", key)
+	_, err := c.Do("del", key)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return err
+}
+func (redispool *Redisconnectpool) SccredisAddgps(longitude string, latitude string, member string) error {
+	c := redispool.pool.Get() //从连接池，取一个链接
+	defer c.Close()           //函数运行结束 ，把连接放回连接池
+
+	_, err := c.Do("geoadd", "sccgps", longitude, latitude, member)
 	if err != nil {
 		fmt.Println(err)
 		return err
@@ -94,10 +108,51 @@ func (redispool *redisconnectpool) SccredisDel(key string) (err error) {
 	return err
 }
 
-func sjdtst(s int) (out1 int) {
-	out := 33
-	return out
+func (redispool *Redisconnectpool) SccredisDelgps(member string) error {
+	c := redispool.pool.Get() //从连接池，取一个链接
+	defer c.Close()           //函数运行结束 ，把连接放回连接池
+
+	_, err := c.Do("ZREM", "sccgps", member)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return err
 }
-func main() {
-	sjdtst(2)
+func (redispool *Redisconnectpool) SccredisGetmembernearby(longitude string, latitude string, distance int) ([]string, error) {
+	c := redispool.pool.Get() //从连接池，取一个链接
+	defer c.Close()           //函数运行结束 ，把连接放回连接池
+
+	r, err := redis.Strings(c.Do("georadius", "sccgps", longitude, latitude, strconv.Itoa(distance), "m"))
+	if err != nil {
+		fmt.Println("get key faild :", err)
+		return nil, err
+	}
+	return r, err
 }
+func (redispool *Redisconnectpool) SccredisGetmembergpsinf(members []string) ([]*[2]float64, error) {
+	c := redispool.pool.Get() //从连接池，取一个链接
+	defer c.Close()           //函数运行结束 ，把连接放回连接池
+	tmosting := []interface{}{}
+	tmosting = append(tmosting, "sccgps")
+	for _, v := range members {
+		tmosting = append(tmosting, v)
+	}
+
+	//tmosting = append(tmosting, "13")
+	r, err := redis.Positions(c.Do("geopos", tmosting...))
+	if err != nil {
+		fmt.Println("get key faild :", err)
+		return r, err
+	}
+	return r, err
+}
+
+/*func main() {
+	var sjdtest Redisconnectpool
+	sjdtest.redisip = "192.168.1.124:6379"
+	sjdtest.redispassword = "123456"
+	sjdtest.ConnectRedis()
+	r, _ := sjdtest.SccredisGetmembernearby("118.32155", "31.123", 1000)
+	sjdtest.SccredisGetmembergpsinf(r)
+}*/
