@@ -56,10 +56,8 @@ func (mysqlpool *Mysqlconnectpool) Execsqlcmd(sqlcmd string, async bool) (ret in
 	if async {
 		go execsccsql(mysqlpool.sqlpoint, sqlcmd)
 		return 0
-	} else {
-		return execsccsql(mysqlpool.sqlpoint, sqlcmd)
 	}
-	return 0
+	return execsccsql(mysqlpool.sqlpoint, sqlcmd)
 }
 
 func (mysqlpool *Mysqlconnectpool) connectMysql() {

@@ -138,8 +138,6 @@ func (redispool *Redisconnectpool) SccredisGetmembergpsinf(members []string) ([]
 	for _, v := range members {
 		tmosting = append(tmosting, v)
 	}
-
-	//tmosting = append(tmosting, "13")
 	r, err := redis.Positions(c.Do("geopos", tmosting...))
 	if err != nil {
 		fmt.Println("get key faild :", err)
