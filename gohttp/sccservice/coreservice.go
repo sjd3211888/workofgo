@@ -19,21 +19,14 @@ type coreinfo struct {
 var sccinfo coreinfo
 
 func init() {
-	sccinfo.tmpsql.Initmysql("192.168.1.22", "root", "root", "SCC", 3306)
-	sccinfo.tmpredis.Redisip = ("192.168.1.22")
-	sccinfo.tmpredis.Redispassword = ("123456")
+	sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
+	sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
 	sccinfo.tmpredis.ConnectRedis()
 	r := gin.Default()
 	setrouter(r)
 	if err := r.Run(":9888"); err != nil {
 		fmt.Println("startup service failed, err:%v\n", err)
 	}
-}
-
-func helloHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Hello www.topgoer.com!",
-	})
 }
 func querysccdepartment(c *gin.Context) {
 	bjson := c.DefaultQuery("json", "yes")
@@ -112,7 +105,7 @@ func queryofflinemsg(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	scckey := fmt.Sprintf("offline_%s", json.Sccid)
+	scckey := fmt.Sprintf("offlinemsg_%s", json.Sccid)
 	myredisresult, _ := sccinfo.tmpredis.SccredisGetAll(scckey)
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": myredisresult})
 }
@@ -140,7 +133,7 @@ func reportgps(c *gin.Context) {
 		Longitude   string `json:"longitude" binding:"required"`
 		Latitude    string `json:"latitude" binding:"required"`
 		Gps         string `json:"gps" binding:"required"`
-		Speed       string `json:"speed"`
+		Speed       int    `json:"speed"`
 		Angle       string `json:"angle"`
 		Description string `json:"description"`
 	}
@@ -164,10 +157,10 @@ func querygps(c *gin.Context) {
 	type querygps struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
 		Sccid           string `json:"sccid" binding:"required"`
-		starttime       string `json:"starttime" binding:"required"`
-		endtime         string `json:"endtime" binding:"required"`
-		pagenum         string `json:"pagenum" binding:"required"`
-		needdescription string `json:"needdescription"`
+		Starttime       int    `json:"starttime" binding:"required"`
+		Endtime         int    `json:"endtime" binding:"required"`
+		Pagenum         int    `json:"pagenum" binding:"required"`
+		Needdescription string `json:"needdescription"`
 	}
 
 	var json querygps
@@ -178,10 +171,57 @@ func querygps(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println(json.Sccid)
-	/*sqlcmd := fmt.Sprintf("insert into gpsinfo(sccid,longitude,latitude,reporttime,gps,angle,speed,description) values(%v,%v,%v,%v,%v,%v,%v,%v);", json.sccid, json.longitude, json.latitude, time.Now().Unix(), json.gps, json.angle, json.speed, json.description)
-	sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)*/
-	c.JSON(http.StatusOK, gin.H{"status": "200"})
+	sqlcmd1 := fmt.Sprintf("select count(*) from gpsinfo where sccid= '%v' and reporttime > '%v' and reporttime < '%v'", json.Sccid, json.Starttime, json.Endtime)
+	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
+	var pagenum = json.Pagenum
+	var numberperpage = 30
+	var fromcount = 0
+	if _, ok := sqlresult[0]["count(*)"]; ok {
+		count, _ := strconv.Atoi(sqlresult[0]["count(*)"])
+		fmt.Println(sqlresult) //存在
+		if 0 != count {
+			fmt.Println("存在 updata")
+			if 0 == json.Pagenum {
+				pagenum = 1 //不存在第0页
+			}
+			if count < numberperpage {
+				if 1 == pagenum {
+					fromcount = 0
+				} else {
+					fromcount = numberperpage
+				}
+
+			} else {
+				fromcount = count - (numberperpage)*pagenum
+				if fromcount < 0 {
+					//int tmpnumberperpage = numberperpage;
+					numberperpage = fromcount + numberperpage
+					fromcount = 0
+				}
+			}
+			if 0 == json.Starttime && 0 == json.Endtime {
+				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed,description from gpsinfo where uid= '%v' order by id DESC limit 1", json.Sccid)
+				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+				return
+			}
+			if "yes" == json.Needdescription {
+				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed,description from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
+				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+				return
+			} else {
+				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
+				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+				return
+			}
+
+		} else {
+			fmt.Println("不存在 insert")
+			c.JSON(http.StatusOK, gin.H{"result": "success"})
+		}
+	}
 }
 func querypersonhistoryim(c *gin.Context) {
 	type personimhistory struct {
@@ -239,8 +279,8 @@ func querypersonhistoryim(c *gin.Context) {
 func querygrouphistoryim(c *gin.Context) {
 	type personimhistory struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Groupid string `json:"groupid" binding:"required"`
-		Pagenum int    `json:"pagenum" binding:"required"`
+		Groupid int `json:"groupid" binding:"required"`
+		Pagenum int `json:"pagenum" binding:"required"`
 	}
 	var json personimhistory
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -346,11 +386,18 @@ func querynearbyscc(c *gin.Context) {
 	}
 	myredisnearby, _ := sccinfo.tmpredis.SccredisGetmembernearby(json.Longitude, json.Latitude, json.Distance)
 	myredisnearbyinfo, _ := sccinfo.tmpredis.SccredisGetmembergpsinf(myredisnearby)
-	c.JSON(http.StatusOK, gin.H{"result": "success", "data": myredisnearbyinfo})
+	var sccresult []map[string]string
+	for i := range myredisnearby {
+		long := strconv.FormatFloat(myredisnearbyinfo[i][0], 'f', -1, 64)
+		lat := strconv.FormatFloat(myredisnearbyinfo[i][1], 'f', -1, 64)
+		tmpgps := map[string]string{"longitude": long, "latitude": lat, "sccid": myredisnearby[i]}
+		sccresult = append(sccresult, tmpgps)
+	}
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sccresult})
 }
 func querysccdetail(c *gin.Context) {
 	bjson := c.DefaultQuery("json", "yes")
-	sccid := c.DefaultQuery("sccid", "1")
+	sccid := c.DefaultQuery("sccid", "0")
 	sqlcmd := fmt.Sprintf("select  sccid,post,mailbox,address,phone,mobliephone from scc_userdetailed where sccid='%v'", sccid)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 	if "yes" == bjson {
@@ -360,19 +407,18 @@ func querysccdetail(c *gin.Context) {
 	}
 }
 func setrouter(r *gin.Engine) {
-	r.GET("/topgoer", helloHandler)
 	r.GET("/querydepartment", querysccdepartment)
 	r.GET("/querydepartmentuser", querydepartmentuser)
 	r.GET("/querygroup", querygroup)
 	r.GET("/queryuser", queryuser)
 	r.GET("/querygroupuser", querygroupuser)
-	r.GET("/queryofflinemsg", queryofflinemsg)
-	r.GET("/queryRecnetSession", queryRecnetSession)
+	r.POST("/queryofflinemsg", queryofflinemsg)
+	r.POST("/queryRecnetSession", queryRecnetSession)
 	r.POST("/reportgps", reportgps)
 	r.GET("/querygps", querygps)
 	r.POST("/querypersonhistoryim", querypersonhistoryim)
 	r.POST("/querygrouphistoryim", querygrouphistoryim)
 	r.POST("/moduserdetail", moduserdetail)
 	r.GET("/querysccuserdetail", querysccdetail)
-	r.GET("/querynearbyscc", querynearbyscc)
+	r.POST("/querynearbyscc", querynearbyscc)
 }
