@@ -85,7 +85,17 @@ func querygroupuser(c *gin.Context) {
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 	sqlcmd1 := fmt.Sprintf("Select scc_groupuser.s_user,scc_groupuser.s_displayname,scc_groupuser.s_grade,scc_groupuser.s_usertype,scc_groupuser.s_createtime,scc_groupuser.s_updatetime,scc_user.s_alias from scc_groupuser inner join scc_user on scc_groupuser.s_user =scc_user.s_user where scc_groupuser.s_groupid= %v", groupid)
 	sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
+	tmggroupid := fmt.Sprintf("group_%s", groupid)
+	newmsg, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, "newestmsg")
+	tmpmsg := map[string]string{"lastmsg": newmsg}
+	sqlresult = append(sqlresult, tmpmsg)
+	for i := range sqlresult1 {
 
+		fmt.Println(sqlresult1[i]["s_user"])
+		userstatus, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, sqlresult1[i]["s_user"])
+		//statusmap := map[string]string{"status": userstatus}
+		sqlresult1[i]["status"] = userstatus
+	}
 	if "yes" == bjson {
 		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"groupinfo": sqlresult, "userinfo": sqlresult1}})
 	} else {

@@ -74,6 +74,17 @@ func (redispool *Redisconnectpool) SccredisGetAll(key string) (map[string]string
 	}
 	return r, err
 }
+func (redispool *Redisconnectpool) SccredisHget(key string, filed string) (string, error) {
+	c := redispool.pool.Get() //从连接池，取一个链接
+	defer c.Close()           //函数运行结束 ，把连接放回连接池
+
+	r, err := redis.String(c.Do("HGET", key, filed))
+	if err != nil {
+		fmt.Println("get key faild :", err)
+		return "", err
+	}
+	return r, err
+}
 func (redispool *Redisconnectpool) SccredisHdel(key string, field string) error {
 	c := redispool.pool.Get() //从连接池，取一个链接
 	defer c.Close()           //函数运行结束 ，把连接放回连接池
