@@ -22,7 +22,9 @@ func init() {
 	sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
 	sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
 	sccinfo.tmpredis.ConnectRedis()
+	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
 	setrouter(r)
 	if err := r.Run(":9888"); err != nil {
 		fmt.Println("startup service failed, err:%v\n", err)
