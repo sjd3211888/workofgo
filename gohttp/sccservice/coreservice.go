@@ -220,12 +220,12 @@ func querygps(c *gin.Context) {
 			if "yes" == json.Needdescription {
 				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed,description from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
 				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "gpsinfo": sqlresult}})
 				return
 			} else {
 				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
 				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "totoal": count, "gpsinfo": sqlresult}})
 				return
 			}
 
@@ -280,7 +280,7 @@ func querypersonhistoryim(c *gin.Context) {
 			}
 			sqlcmd1 := fmt.Sprintf("select id,fromsccid,tosccid,iminfo,imtype,filepath,created from scc_IMMessage where fromsccid= '%v' and tosccid = '%v' or fromsccid= '%v' and tosccid = '%v' limit %v,%v", json.Sccid, json.Peerid, json.Peerid, json.Sccid, fromcount, numberperpage)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
-			c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "totoal": count, "msginfo": sqlresult}})
 		} else {
 			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
@@ -333,7 +333,7 @@ func querygrouphistoryim(c *gin.Context) {
 			sqlcmd1 := fmt.Sprintf("select id,fromsccid,groupid,iminfo,imtype,filepath,created,msgid from scc_IMGROUPMessage where groupid = '%v' limit %v,%v", json.Groupid, fromcount, numberperpage)
 			fmt.Println(sqlcmd1)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
-			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "msginfo": sqlresult}})
+			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "msginfo": sqlresult}})
 		} else {
 			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
