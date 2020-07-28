@@ -280,7 +280,7 @@ func querypersonhistoryim(c *gin.Context) {
 			}
 			sqlcmd1 := fmt.Sprintf("select id,fromsccid,tosccid,iminfo,imtype,filepath,created from scc_IMMessage where fromsccid= '%v' and tosccid = '%v' or fromsccid= '%v' and tosccid = '%v' limit %v,%v", json.Sccid, json.Peerid, json.Peerid, json.Sccid, fromcount, numberperpage)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
-			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "totoal": count, "msginfo": sqlresult}})
+			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "msginfo": sqlresult}})
 		} else {
 			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
@@ -427,7 +427,7 @@ func setrouter(r *gin.Engine) {
 	r.POST("/queryofflinemsg", queryofflinemsg)
 	r.POST("/queryRecnetSession", queryRecnetSession)
 	r.POST("/reportgps", reportgps)
-	r.GET("/querygps", querygps)
+	r.POST("/querygps", querygps)
 	r.POST("/querypersonhistoryim", querypersonhistoryim)
 	r.POST("/querygrouphistoryim", querygrouphistoryim)
 	r.POST("/moduserdetail", moduserdetail)

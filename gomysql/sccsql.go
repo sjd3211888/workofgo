@@ -79,14 +79,14 @@ func (mysqlpool *Mysqlconnectpool) Ping() {
 	}
 }
 
-func (mysqlpool *Mysqlconnectpool) SelectData(sqlcmd string) (sccresult []map[string]string) {
+func (mysqlpool *Mysqlconnectpool) SelectData(sqlcmd string) []map[string]string {
 
 	//定义结构体切片，用来存放多条查询记录
 
 	rows, err := mysqlpool.sqlpoint.Queryx(sqlcmd)
 	if err != nil {
 		fmt.Printf("query faied, error:[%v]", err.Error())
-		return
+		return nil
 	}
 
 	columns, _ := rows.Columns()
@@ -113,4 +113,17 @@ func (mysqlpool *Mysqlconnectpool) SelectData(sqlcmd string) (sccresult []map[st
 	}
 	rows.Close()
 	return result
+}
+func (mysqlpool *Mysqlconnectpool) Insertmql(sqlcmd string) int64 {
+	r, err := mysqlpool.sqlpoint.Exec(sqlcmd)
+	if err != nil {
+		fmt.Println("exec failed, ", err)
+		return 0
+	}
+	id, err := r.LastInsertId()
+	if err != nil {
+		fmt.Println("exec failed, ", err)
+		return 0
+	}
+	return id
 }
