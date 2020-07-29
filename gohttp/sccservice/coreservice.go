@@ -19,16 +19,19 @@ type coreinfo struct {
 var sccinfo coreinfo
 
 func init() {
-	sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
-	sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
-	sccinfo.tmpredis.ConnectRedis()
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	go func() {
+		sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
+		sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
+		sccinfo.tmpredis.ConnectRedis()
+		gin.SetMode(gin.ReleaseMode)
+		r := gin.Default()
 
-	setrouter(r)
-	if err := r.Run(":9888"); err != nil {
-		fmt.Println("startup service failed, err:%v\n", err)
-	}
+		setrouter(r)
+		if err := r.Run(":9888"); err != nil {
+			fmt.Println("startup service failed, err:%v\n", err)
+		}
+	}()
+
 }
 func querysccdepartment(c *gin.Context) {
 	bjson := c.DefaultQuery("json", "yes")
@@ -45,7 +48,7 @@ func querysccdepartment(c *gin.Context) {
 func querydepartmentuser(c *gin.Context) {
 	bjson := c.DefaultQuery("json", "yes")
 	departmentid := c.DefaultQuery("departmentid", "1")
-	onlydispatcher := c.DefaultQuery("onlydispatcher", "1")
+	onlydispatcher := c.DefaultQuery("onlydispatcher", "0")
 	sqlcmd := fmt.Sprintf("Select s_user,s_grade,s_usertype,s_createtime,s_updatetime,s_alias,s_displayname from scc_user  where s_departmentid = '%v' and s_usertype>='%v'", departmentid, onlydispatcher)
 
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)

@@ -17,14 +17,17 @@ type coreinfo struct {
 var sccinfo coreinfo
 
 func init() {
-	sccinfo.tmpsql.Initmysql("192.168.1.124", "root", "root", "sccwork", 3306)
-	//gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	go func() {
+		sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "sccwork", 3306)
+		gin.SetMode(gin.ReleaseMode)
+		r := gin.Default()
 
-	setrouter(r)
-	if err := r.Run(":9980"); err != nil {
-		fmt.Println("startup service failed, err:%v\n", err)
-	}
+		setrouter(r)
+		if err := r.Run(":9980"); err != nil {
+			fmt.Println("startup service failed, err:%v\n", err)
+		}
+	}()
+
 }
 
 func sccworklogin(c *gin.Context) {
@@ -603,6 +606,55 @@ func scchandleworkflow(c *gin.Context) {
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
 }
+func sccqueryapprolist(c *gin.Context) {
+	type approlist struct {
+		Approlistid int `json:"approlistid" binding:"required"`
+	}
+	var json approlist
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd2 := fmt.Sprintf("Select id,approver,approvertype from scc_approver where workid= '%v'", json.Approlistid)
+	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult2})
+}
+func sccquerycclist(c *gin.Context) {
+	type cclist struct {
+		Cclistid int `json:"cclistid" binding:"required"`
+	}
+	var json cclist
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd2 := fmt.Sprintf("Select id,cc  from scc_cc where workid= '%v'", json.Cclistid)
+	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult2})
+}
+func sccqueryuserinfo(c *gin.Context) {
+	type useridinfo struct {
+		Userid int `json:"userid" binding:"required"`
+	}
+	var json useridinfo
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd2 := fmt.Sprintf("Select id,usertype,phone,telephone,username,dsec from scc_approver where workid= '%v'", json.Userid)
+	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult2})
+}
+
 func setrouter(r *gin.Engine) {
 	r.POST("/login", sccworklogin)
 	r.POST("/createtemplate", scccreatetemplate)
@@ -615,4 +667,7 @@ func setrouter(r *gin.Engine) {
 	r.POST("/approve", sccapprove)
 	r.POST("/queryworkflow", sccqueryworkflow)
 	r.POST("/handleworkflow", scchandleworkflow)
+	r.POST("/queryapprolist", sccqueryapprolist)
+	r.POST("/querycclist", sccquerycclist)
+	r.POST("/queryuserinfo", sccqueryuserinfo)
 }
