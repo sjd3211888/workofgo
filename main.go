@@ -2,23 +2,22 @@ package main
 
 import (
 	"fmt"
-	"runtime"
-
 	//_ "golearn/gohttp/sccservice"
-	_ "golearn/gohttp/sccwork"
+	//_ "golearn/gohttp/sccwork"
 )
 
-func main() {
-	go func(s string) {
-		for i := 0; i < 2; i++ {
-			fmt.Println(s)
-		}
-	}("world")
-	// 主协程
-	for i := 0; i < 2; i++ {
-		// 切一下，再次分配任务
-		runtime.Gosched()
-		fmt.Println("hello")
+func add(base int) func(int) int {
+	return func(i int) int {
+		base += i
+		return base
 	}
-	select {}
+}
+
+func main() {
+	tmp1 := add(10)
+	fmt.Println(tmp1(1), tmp1(2))
+	// 此时tmp1和tmp2不是一个实体了
+	tmp2 := add(100)
+	fmt.Println(tmp2(1), tmp2(2))
+	fmt.Println(add(1000)(1))
 }

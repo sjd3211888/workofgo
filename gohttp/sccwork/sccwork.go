@@ -46,6 +46,9 @@ func sccworklogin(c *gin.Context) {
 	}
 	sqlcmd := fmt.Sprintf("select  userid from scc_user where userid='%v'", json.Username)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
+	c.SetCookie("abc", "123", 60, "/",
+		"localhost", false, true)
+	// 返回信息
 	if 0 == len(sqlresult) {
 		c.JSON(http.StatusBadRequest, gin.H{"result": "falied"})
 	} else {
@@ -62,11 +65,11 @@ func scccreatetemplate(c *gin.Context) {
 	type templatework struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
 		Templatename string         `json:"name" binding:"required"`
-		Trade        int            `json:"trade" binding:"required"`
-		Ptype        int            `json:"type" binding:"required"`
-		Creater      int            `json:"creater" binding:"required"`
-		Templateuer  int            `json:"templateuer" binding:"required"`
-		Resrearcher  int            `json:"resrearcher" binding:"required"`
+		Trade        string         `json:"trade" binding:"required"`
+		Ptype        string         `json:"type" binding:"required"`
+		Creater      string         `json:"creater" binding:"required"`
+		Templateuer  string         `json:"templateuer" binding:"required"`
+		Resrearcher  string         `json:"resrearcher" binding:"required"`
 		Apporlist    []apporverlist `json:"apporver" binding:"required"`
 		Cclist       []sccccist     `json:"cc"`
 	}
@@ -109,14 +112,15 @@ func scccreatetemplate(c *gin.Context) {
 	fmt.Println(sqlcmd)
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
 	fmt.Println(json.Apporlist, json.Cclist)
-	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateid": workid}})
+	strworkid := strconv.FormatInt(workid, 10)
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateid": strworkid}})
 }
 
 func sccquerytemplate(c *gin.Context) {
 	type querytemplatework struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Usertype int `json:"usertype" binding:"required"` // 1 模板创建者 2模板使用者
-		Username int `json:"useid" binding:"required"`
+		Usertype string `json:"usertype" binding:"required"` // 1 模板创建者 2模板使用者
+		Username string `json:"useid" binding:"required"`
 	}
 	var json querytemplatework
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -126,11 +130,11 @@ func sccquerytemplate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if json.Usertype == 1 {
+	if json.Usertype == "1" {
 		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser from scc_worktempplate where creater= '%v'", json.Username)
 		sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateinfo": sqlresult1}})
-	} else if json.Usertype == 2 {
+	} else if json.Usertype == "2" {
 		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser from scc_worktempplate where templateuser= '%v'", json.Username)
 		sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateinfo": sqlresult1}})
@@ -140,8 +144,8 @@ func sccquerytemplate(c *gin.Context) {
 func scccreateapply(c *gin.Context) {
 	type querytemplatework struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Templateid   int    `json:"templateid" binding:"required"`
-		Username     int    `json:"username" binding:"required"`
+		Templateid   string `json:"templateid" binding:"required"`
+		Username     string `json:"username" binding:"required"`
 		Textinfo     string `json:"textinfo"`
 		Filepath     string `json:"filepath"`
 		Telephonenum string `json:"telephonenum"`
@@ -165,24 +169,24 @@ func scccreateapply(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
 }
-func sccqueryworktempplatebyworkid(workid int) []map[string]string {
+func sccqueryworktempplatebyworkid(workid string) []map[string]string {
 	sqlcmd2 := fmt.Sprintf("Select workid,templatename,trade,p_type,creater from scc_worktempplate where workid= '%v'", workid)
 	return sccinfo.tmpsql.SelectData(sqlcmd2)
 
 }
-func sccqueryapproveryworkid(workid int) []map[string]string {
+func sccqueryapproveryworkid(workid string) []map[string]string {
 	sqlcmd3 := fmt.Sprintf("Select approver,approvertype from scc_approver where workid= '%v'", workid)
 	return sccinfo.tmpsql.SelectData(sqlcmd3)
 }
-func sccqueryccworkid(workid int) []map[string]string {
+func sccqueryccworkid(workid string) []map[string]string {
 	sqlcmd4 := fmt.Sprintf("Select cc from scc_cc where workid= '%v'", workid)
 	return sccinfo.tmpsql.SelectData(sqlcmd4)
 }
 func sccqueryapply(c *gin.Context) {
 	type queryapply struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Applytype int `json:"type" binding:"required"` //4 我创建的  1  带我处理  2 已处理 3 抄送给我的 5 和我相关的 6 带我研究的 7 待执行
-		Username  int `json:"username"`
+		Applytype string `json:"type" binding:"required"` //4 我创建的  1  带我处理  2 已处理 3 抄送给我的 5 和我相关的 6 带我研究的 7 待执行
+		Username  string `json:"username"`
 	}
 
 	var json queryapply
@@ -194,7 +198,7 @@ func sccqueryapply(c *gin.Context) {
 		return
 	}
 	switch json.Applytype {
-	case 4:
+	case "4":
 		{
 			sqlcmd := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where creater= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
@@ -213,34 +217,50 @@ func sccqueryapply(c *gin.Context) {
 			//需要加开一个接口 通过appid查全部
 			break
 		}
-	case 1:
+	case "1":
 		{
 			sqlcmd := fmt.Sprintf("Select workid,approver,approvertype from scc_approver where approver= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": sqlresult}})
 				break
 			}
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
-				sqlcmd1 := fmt.Sprintf("Select appid from scc_workflow where templateid = %v and appnextnode = %v ", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
+				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = %v ", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
 				fmt.Println(sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
-					sqlcmd2 := fmt.Sprintf("Select appid from scc_workflow where templateid = %v and appcurentnode = %v and appid=%v ", sqlresult[k]["workid"], sqlresult[k]["approvertype"], sqlresult1[j]["appid"])
+					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appcurentnode = %v and appid=%v order by id desc limit 1 ", sqlresult[k]["workid"], sqlresult[k]["approvertype"], sqlresult1[j]["appid"])
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-					//fmt.Println(sqlcmd2, k)
 					if 0 == len(sqlresult2) {
 						sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult1[j]["appid"])
 						sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
 						workflworkresult = append(workflworkresult, sqlresult6...)
+					} else {
+						tmpsql1id, err := strconv.Atoi(sqlresult1[j]["id"])
+						if err != nil {
+							tmpsql1id = 0
+						}
+						tmpsql2id, err := strconv.Atoi(sqlresult2[0]["id"])
+						if err != nil {
+							tmpsql2id = 0
+						}
+						if tmpsql2id > tmpsql1id { //最新审批过的id大于审批的id 证明被审批过了
+							//证明呗审批过了
+						} else {
+							sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult2[0]["appid"])
+							sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
+							workflworkresult = append(workflworkresult, sqlresult6...)
+						}
 					}
+
 				}
 			}
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
 			break
 		}
-	case 2:
+	case "2":
 		{
 			sqlcmd := fmt.Sprintf("Select workid,approver,approvertype from scc_approver where approver= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
@@ -250,7 +270,7 @@ func sccqueryapply(c *gin.Context) {
 			}
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
-				sqlcmd1 := fmt.Sprintf("Select appid from scc_workflow where templateid = %v and appcurentnode = %v ", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
+				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appcurentnode = %v  limit 1", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				if 0 != len(sqlresult1) {
 					sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult1[k]["appid"])
@@ -262,7 +282,7 @@ func sccqueryapply(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
 			break
 		}
-	case 3:
+	case "3":
 		{
 			sqlcmd := fmt.Sprintf("Select workid from scc_cc where cc=%v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
@@ -283,14 +303,14 @@ func sccqueryapply(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
 			break
 		}
-	case 5:
+	case "5":
 		{
 
 			//to do
 			sqlcmd := fmt.Sprintf("Select workid from scc_approver where approver= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflow": sqlresult}})
 				break
 			}
 			workflworkresult := make([]map[string]string, 0)
@@ -305,7 +325,7 @@ func sccqueryapply(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflow": workflworkresult}})
 			break
 		}
-	case 6:
+	case "6":
 		{
 			sqlcmd := fmt.Sprintf("Select workid from scc_worktempplate where researcher= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
@@ -374,7 +394,7 @@ func sccqueryapply(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workapplyinfo": workflworkresult}})
 			break
 		}
-	case 7:
+	case "7":
 		{
 			sqlcmd := fmt.Sprintf("Select workid from scc_worktempplate where researcher= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
@@ -453,7 +473,7 @@ func sccqueryapply(c *gin.Context) {
 func sccuerytmplatebyworkid(c *gin.Context) {
 	type workid struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Workid int `json:"workid" binding:"required"` //0 我创建的  1 已审批的  2 待我审批的  3 抄送给我的 5 和我相关的
+		Workid string `json:"workid" binding:"required"` //0 我创建的  1 已审批的  2 待我审批的  3 抄送给我的 5 和我相关的
 	}
 
 	var json workid
@@ -472,7 +492,7 @@ func sccuerytmplatebyworkid(c *gin.Context) {
 func sccquerytemplateappandcc(c *gin.Context) {
 	type workid struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Workid int `json:"workid" binding:"required"` //0 我创建的  1 已审批的  2 待我审批的  3 抄送给我的
+		Workid string `json:"workid" binding:"required"` //0 我创建的  1 已审批的  2 待我审批的  3 抄送给我的
 	}
 
 	var json workid
@@ -491,11 +511,11 @@ func sccquerytemplateappandcc(c *gin.Context) {
 }
 func sccapprove(c *gin.Context) {
 	type workid struct {
-		Templateid int    `json:"templateid" binding:"required"`
-		Appid      int    `json:"appid" binding:"required"`
-		Status     int    `json:"status" binding:"required"`
+		Templateid string `json:"templateid" binding:"required"`
+		Appid      string `json:"appid" binding:"required"`
+		Status     string `json:"status" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
-		Username   int    `json:"username" binding:"required"`
+		Username   string `json:"username" binding:"required"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -506,7 +526,7 @@ func sccapprove(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if 2 == json.Status { //2 是打回
+	if "2" == json.Status { //2 是打回
 		//先查询下审批表
 		sqlcmd2 := fmt.Sprintf("Select templateid,appnextnode,appid,id from scc_workflow where templateid= '%v' and  appid = %v order by id desc limit 1", json.Templateid, json.Appid)
 		sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
@@ -537,13 +557,14 @@ func sccapprove(c *gin.Context) {
 			sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 		}
 
-	} else if 1 == json.Status {
+	} else if "1" == json.Status {
 		sqlcmd2 := fmt.Sprintf("Select templateid,appnextnode,appid,id from scc_workflow where templateid= '%v' and  appid = %v order by id desc limit 1", json.Templateid, json.Appid)
 		sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
 
 		lenresult := len(sqlresult2)
 		if 0 == lenresult {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": "no user current1"})
+			return
 		}
 		tmpapptype, err := strconv.Atoi(sqlresult2[0]["appnextnode"])
 
@@ -593,7 +614,7 @@ func sccapprove(c *gin.Context) {
 func sccqueryworkflow(c *gin.Context) {
 	type workflowid struct {
 		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
-		Appid int `json:"appid" binding:"required"`
+		Appid string `json:"appid" binding:"required"`
 	}
 	var json workflowid
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -612,10 +633,10 @@ func sccqueryworkflow(c *gin.Context) {
 }
 func sccresearchworkflow(c *gin.Context) {
 	type workid struct {
-		Templateid int    `json:"templateid" binding:"required"`
-		Appid      int    `json:"appid" binding:"required"`
+		Templateid string `json:"templateid" binding:"required"`
+		Appid      string `json:"appid" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
-		Username   int    `json:"username" binding:"required"`
+		Username   string `json:"username" binding:"required"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -640,10 +661,10 @@ func sccresearchworkflow(c *gin.Context) {
 }
 func scchandleworkflow(c *gin.Context) {
 	type workid struct {
-		Templateid int    `json:"templateid" binding:"required"`
-		Appid      int    `json:"appid" binding:"required"`
+		Templateid string `json:"templateid" binding:"required"`
+		Appid      string `json:"appid" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
-		Username   int    `json:"username" binding:"required"`
+		Username   string `json:"username" binding:"required"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -668,7 +689,7 @@ func scchandleworkflow(c *gin.Context) {
 }
 func sccqueryapprolist(c *gin.Context) {
 	type approlist struct {
-		Approlistid int `json:"approlistid" binding:"required"`
+		Approlistid string `json:"approlistid" binding:"required"`
 	}
 	var json approlist
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -684,7 +705,7 @@ func sccqueryapprolist(c *gin.Context) {
 }
 func sccquerycclist(c *gin.Context) {
 	type cclist struct {
-		Cclistid int `json:"cclistid" binding:"required"`
+		Cclistid string `json:"cclistid" binding:"required"`
 	}
 	var json cclist
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -700,7 +721,7 @@ func sccquerycclist(c *gin.Context) {
 }
 func sccqueryuserinfo(c *gin.Context) {
 	type useridinfo struct {
-		Userid int `json:"userid" binding:"required"`
+		Userid string `json:"userid" binding:"required"`
 	}
 	var json useridinfo
 	// 将request的body中的数据，自动按照json格式解析到结构体
