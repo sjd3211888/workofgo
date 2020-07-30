@@ -196,10 +196,10 @@ func sccqueryapply(c *gin.Context) {
 	switch json.Applytype {
 	case 4:
 		{
-			sqlcmd := fmt.Sprintf("Select appid,templateid from scc_apply where creater= %v", json.Username)
+			sqlcmd := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where creater= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "appidinfo": ""})
 				break
 			}
 
@@ -209,7 +209,6 @@ func sccqueryapply(c *gin.Context) {
 					sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 					workflworkresult = append(workflworkresult, sqlresult1...)
 				}*/
-
 			c.JSON(http.StatusOK, gin.H{"result": "success", "appidinfo": sqlresult})
 			//需要加开一个接口 通过appid查全部
 			break
@@ -232,8 +231,9 @@ func sccqueryapply(c *gin.Context) {
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
 					//fmt.Println(sqlcmd2, k)
 					if 0 == len(sqlresult2) {
-						fmt.Println(sqlresult1[j])
-						workflworkresult = append(workflworkresult, sqlresult1[j])
+						sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult1[j]["appid"])
+						sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
+						workflworkresult = append(workflworkresult, sqlresult6...)
 					}
 				}
 			}
@@ -253,7 +253,9 @@ func sccqueryapply(c *gin.Context) {
 				sqlcmd1 := fmt.Sprintf("Select appid from scc_workflow where templateid = %v and appcurentnode = %v ", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				if 0 != len(sqlresult1) {
-					workflworkresult = append(workflworkresult, sqlresult1...)
+					sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult1[k]["appid"])
+					sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
+					workflworkresult = append(workflworkresult, sqlresult6...)
 				}
 
 			}
@@ -272,7 +274,9 @@ func sccqueryapply(c *gin.Context) {
 				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v", inttmpworkid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				if 0 != len(sqlresult1) {
-					workflworkresult = append(workflworkresult, sqlresult1...)
+					sqlcmd6 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= %v", sqlresult1[k]["appid"])
+					sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
+					workflworkresult = append(workflworkresult, sqlresult6...)
 				}
 				fmt.Println(workflworkresult)
 			}
@@ -283,7 +287,7 @@ func sccqueryapply(c *gin.Context) {
 		{
 
 			//to do
-			sqlcmd := fmt.Sprintf("Select appid,templateid from scc_apply where creater= %v", json.Username)
+			sqlcmd := fmt.Sprintf("Select workid from scc_approver where approver= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
 				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
@@ -291,12 +295,14 @@ func sccqueryapply(c *gin.Context) {
 			}
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
-				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = %v && appcurentnode!=%v", sqlresult[k]["workid"], sqlresult[k]["approvertype"], sqlresult[k]["approvertype"])
+				tmpappid, _ := strconv.Atoi(sqlresult[k]["workid"])
+				sqlcmd1 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater  from scc_apply where templateid = %v ", tmpappid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				if 0 != len(sqlresult1) {
 					workflworkresult = append(workflworkresult, sqlresult1...)
 				}
 			}
+			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflow": workflworkresult}})
 			break
 		}
 	case 6:
@@ -304,27 +310,52 @@ func sccqueryapply(c *gin.Context) {
 			sqlcmd := fmt.Sprintf("Select workid from scc_worktempplate where researcher= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflow": sqlresult}})
 				break
 			}
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
 				sqlcmd1 := fmt.Sprintf("Select id,appid,templateid from scc_workflow where templateid = %v and appnextnode = 1 ", sqlresult[k]["workid"])
-
+				fmt.Println("wocao ", sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
-					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where   appid=%v and appnextnode=1 order by id desc limit 1", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 2 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-
-					if 0 != len(sqlresult2) {
-						sqlcmd3 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 2 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询当前appid中已经执行过研究的最大ID，如果执行研究的最大ID大于此ID，表明有呗打回，否则上面的ID应该是未研究的最大ID
+					fmt.Println("wocao1 ", sqlcmd2)
+					if 0 == len(sqlresult2) {
+						fmt.Println("SS", sqlcmd2)
+						sqlcmd5 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid=%v", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+						sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
+						workflworkresult = append(workflworkresult, sqlresult5...)
+					} else {
+						tmpproid, err := strconv.Atoi(sqlresult1[j]["id"])
+						if err != nil {
+							tmpproid = 0
+						}
+						tmpnext, err := strconv.Atoi(sqlresult2[0]["id"])
+						if err != nil {
+							tmpnext = 0
+						}
+						if tmpnext > tmpproid {
+							fmt.Println(tmpnext, tmpproid)
+							//不加了
+						} else {
+							fmt.Println(tmpnext, tmpproid)
+							sqlcmd5 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid=%v", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+							sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
+							workflworkresult = append(workflworkresult, sqlresult5...)
+						}
+					}
+					/*	}
+						sqlcmd3 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 2 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult2[0]["appid"]) //查询当前appid中已经执行过研究的最大ID，如果执行研究的最大ID大于此ID，表明有呗打回，否则上面的ID应该是未研究的最大ID
 						sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
-						fmt.Println(sqlresult3)
+						fmt.Println("sss", sqlresult3)
 						tmpproid, err := strconv.Atoi(sqlresult2[0]["id"])
 						if err != nil {
 							tmpproid = 0
 						}
 						if 0 == len(sqlresult3) {
+							fmt.Println("cccc", sqlresult3)
 							workflworkresult = append(workflworkresult, sqlresult1[j])
 						} else {
 							tmpnext, err := strconv.Atoi(sqlresult3[0]["id"])
@@ -332,15 +363,15 @@ func sccqueryapply(c *gin.Context) {
 								tmpnext = 0
 							}
 							if tmpnext < tmpproid {
-								fmt.Println(sqlresult3)
+								fmt.Println("bbb", sqlresult3)
 								workflworkresult = append(workflworkresult, sqlresult1[j])
 							}
 						}
 
-					}
+					}*/
 				}
 			}
-			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
+			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workapplyinfo": workflworkresult}})
 			break
 		}
 	case 7:
@@ -348,26 +379,52 @@ func sccqueryapply(c *gin.Context) {
 			sqlcmd := fmt.Sprintf("Select workid from scc_worktempplate where researcher= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
-				c.JSON(http.StatusOK, gin.H{"result": "success", "data": ""})
+				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": sqlresult}})
 				break
 			}
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
-				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 101", sqlresult[k]["workid"])
-				//fmt.Println(sqlcmd1)
+				sqlcmd1 := fmt.Sprintf("Select id,appid,templateid from scc_workflow where templateid = %v and appnextnode = 101 ", sqlresult[k]["workid"])
+				fmt.Println("wocao ", sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
-					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 101 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行的最大ID
+					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 102 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-					if 0 != len(sqlresult2) {
-						sqlcmd3 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 102 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询当前appid中已经执行的最大ID，如果执行的最大ID大于此ID，表明有呗打回，否则上面的ID应该是未研究的最大ID
+					fmt.Println("wocao1 ", sqlcmd2)
+					if 0 == len(sqlresult2) {
+						fmt.Println("SS", sqlcmd2)
+						sqlcmd5 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid=%v", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+						sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
+						workflworkresult = append(workflworkresult, sqlresult5...)
+					} else {
+						tmpproid, err := strconv.Atoi(sqlresult1[j]["id"])
+						if err != nil {
+							tmpproid = 0
+						}
+						tmpnext, err := strconv.Atoi(sqlresult2[0]["id"])
+						if err != nil {
+							tmpnext = 0
+						}
+						if tmpnext > tmpproid {
+							fmt.Println(tmpnext, tmpproid)
+							//不加了
+						} else {
+							fmt.Println(tmpnext, tmpproid)
+							sqlcmd5 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid=%v", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+							sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
+							workflworkresult = append(workflworkresult, sqlresult5...)
+						}
+					}
+					/*	}
+						sqlcmd3 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v and appnextnode = 2 and appid=%v order by id desc limit 1", sqlresult[k]["workid"], sqlresult2[0]["appid"]) //查询当前appid中已经执行过研究的最大ID，如果执行研究的最大ID大于此ID，表明有呗打回，否则上面的ID应该是未研究的最大ID
 						sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
-						fmt.Println(sqlresult3)
+						fmt.Println("sss", sqlresult3)
 						tmpproid, err := strconv.Atoi(sqlresult2[0]["id"])
 						if err != nil {
 							tmpproid = 0
 						}
 						if 0 == len(sqlresult3) {
+							fmt.Println("cccc", sqlresult3)
 							workflworkresult = append(workflworkresult, sqlresult1[j])
 						} else {
 							tmpnext, err := strconv.Atoi(sqlresult3[0]["id"])
@@ -375,16 +432,16 @@ func sccqueryapply(c *gin.Context) {
 								tmpnext = 0
 							}
 							if tmpnext < tmpproid {
-								fmt.Println(sqlresult3)
+								fmt.Println("bbb", sqlresult3)
 								workflworkresult = append(workflworkresult, sqlresult1[j])
 							}
 						}
-					}
 
+					}*/
 				}
 			}
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
-
+			break
 		}
 	default:
 		{
@@ -548,7 +605,10 @@ func sccqueryworkflow(c *gin.Context) {
 	}
 	sqlcmd2 := fmt.Sprintf("select appid,createtime,advise,templateid,appcurentnode,appnextnode,id from scc_workflow where appid= '%v'", json.Appid)
 	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult2})
+
+	sqlcmd3 := fmt.Sprintf("select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= '%v'", json.Appid)
+	sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"applinfo": sqlresult3, "workflowinfo": sqlresult2}})
 }
 func sccresearchworkflow(c *gin.Context) {
 	type workid struct {
