@@ -35,7 +35,7 @@ func (redispool *Redisconnectpool) SccredisSet(key string, value string) error {
 
 	_, err := c.Do("Set", key, value)
 	if err != nil {
-		fmt.Println(err)
+		//fmt.Println(err)
 		return err
 	}
 	return nil
@@ -46,7 +46,7 @@ func (redispool *Redisconnectpool) SccredisGet(key string) (string, error) {
 
 	r, err := redis.String(c.Do("Get", key))
 	if err != nil {
-		fmt.Println("get key faild :", err)
+		//	fmt.Println("get key faild :", err)
 		return "", err
 	}
 	return r, err
@@ -58,7 +58,7 @@ func (redispool *Redisconnectpool) SccredisHSet(key string, filed string, value 
 	_, err := c.Do("HSet", key, filed, value)
 	//_, err = c.Do("HSet", "user01", "name1", "tom2")
 	if err != nil {
-		fmt.Println("hset key faild :", err)
+		//fmt.Println("hset key faild :", err)
 		return err
 	}
 	return err
@@ -69,7 +69,7 @@ func (redispool *Redisconnectpool) SccredisGetAll(key string) (map[string]string
 
 	r, err := redis.StringMap(c.Do("HGETALL", key))
 	if err != nil {
-		fmt.Println("get key faild :", err)
+		//fmt.Println("get key faild :", err)
 		return nil, err
 	}
 	return r, err
@@ -80,7 +80,7 @@ func (redispool *Redisconnectpool) SccredisHget(key string, filed string) (strin
 
 	r, err := redis.String(c.Do("HGET", key, filed))
 	if err != nil {
-		fmt.Println("get key faild :", err)
+		//fmt.Println("get key faild :", err)
 		return "", err
 	}
 	return r, err

@@ -20,7 +20,6 @@ var sccinfo coreinfo
 
 func init() {
 	go func() {
-		fmt.Println("xxxxxxxxxxxxxxxxxxxxxxxxx")
 		sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
 		sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
 		sccinfo.tmpredis.ConnectRedis()
