@@ -122,6 +122,7 @@ func queryofflinemsg(c *gin.Context) {
 	}
 	scckey := fmt.Sprintf("offlinemsg_%s", json.Sccid)
 	myredisresult, _ := sccinfo.tmpredis.SccredisGetAll(scckey)
+	sccinfo.tmpredis.SccredisDel(scckey)
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": myredisresult})
 }
 func queryRecnetSession(c *gin.Context) {

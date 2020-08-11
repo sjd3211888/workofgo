@@ -325,7 +325,8 @@ func sccqueryapply(c *gin.Context) {
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
 				tmpappid, _ := strconv.Atoi(sqlresult[k]["workid"])
-				sqlcmd1 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater  from scc_apply where templateid = %v ", tmpappid)
+				//sqlcmd1 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater  from scc_apply where templateid = %v ", tmpappid)
+				sqlcmd1 := fmt.Sprintf("select sc.appid,sc.templateid,sc.createtime,sc.textinfo,sc.filepath,sc.telephone,sc.creater,t2.advise,t2.id,t2.createtime as workflowtime,t2.appcurentnode,t2.appnextnode from scc_apply sc inner join(select sw.appid,sw.advise,sw.id,sw.createtime,sw.appcurentnode,sw.appnextnode from scc_workflow sw  order by sw.id desc) t2 on sc.appid=t2.appid where sc.templateid=%v group by t2.appid;", tmpappid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				fmt.Println("SSSSSSSSSS", sqlresult1)
 				if 0 != len(sqlresult1) {
@@ -640,7 +641,7 @@ func sccqueryworkflow(c *gin.Context) {
 	sqlcmd3 := fmt.Sprintf("select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= '%v'", json.Appid)
 	sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
 
-	sqlcmd4 := fmt.Sprintf("select id,workflowid,createtime,comment from scc_comment where appid= '%v'", json.Appid)
+	sqlcmd4 := fmt.Sprintf("select id,workflowid,createtime,comment,commentuser from scc_comment where appid= '%v'", json.Appid)
 	sqlresult4 := sccinfo.tmpsql.SelectData(sqlcmd4)
 
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"applinfo": sqlresult3, "workflowinfo": sqlresult2, "commentinfo": sqlresult4}})
@@ -751,9 +752,10 @@ func sccqueryuserinfo(c *gin.Context) {
 }
 func sccaddaddcomment(c *gin.Context) {
 	type comment struct {
-		Workflowid string `json:"workflowid" binding:"required"`
-		Comment    string `json:"comment" binding:"required"`
-		Appid      string `json:"appid" binding:"required"`
+		Workflowid  string `json:"workflowid" binding:"required"`
+		Comment     string `json:"comment" binding:"required"`
+		Appid       string `json:"appid" binding:"required"`
+		Commentuser string `json:"commentuser" binding:"required"`
 	}
 	var json comment
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -763,7 +765,7 @@ func sccaddaddcomment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sqlcmd := fmt.Sprintf("insert into scc_comment (workflowid,createtime,comment,appid)values(%v,%v,'%v','%v');", json.Workflowid, time.Now().Unix(), json.Comment, json.Appid)
+	sqlcmd := fmt.Sprintf("insert into scc_comment (workflowid,createtime,comment,appid,commentuser)values(%v,%v,'%v','%v','%v');", json.Workflowid, time.Now().Unix(), json.Comment, json.Appid, json.Commentuser)
 
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
 	c.JSON(http.StatusOK, gin.H{"result": "success"})

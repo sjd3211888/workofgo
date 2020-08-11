@@ -11,35 +11,33 @@ func main() {
 	//kutengTwo := RabbitMQ.NewRabbitMQTopic("exKutengTopic", "kuteng.topic.two")
 	//kutengThree := RabbitMQ.NewRabbitMQTopic("exKutengTopic", "kuteng.topic.three")
 	go func() {
-		t1 := time.Now()
-		for i := 0; i <= 300000; i++ {
+		var t = time.Now()
+		for i := 0; i <= 10; i++ {
 			kutengOne.PublishTopic("Hello kuteng topic one!" + strconv.Itoa(i))
 			//kutengTwo.PublishTopic("Hello kuteng topic Two!" + strconv.Itoa(i))
 			//time.Sleep(1 * time.Second)
 			//fmt.Println(i)
 		}
-		println(time.Since(t1))
-		kutengOne.Destory()
+		println(time.Since(t))
 	}()
 	/*go func() {
-			for i := 0; i <= 1000000; i++ {
-				//kutengOne.PublishTopic("Hello kuteng topic one!" + strconv.Itoa(i))
-				kutengTwo.PublishTopic("Hello kuteng topic Two!" + strconv.Itoa(i))
-				//time.Sleep(1 * time.Second)
-				//fmt.Println(i)
-			}
+		for i := 0; i <= 1000000; i++ {
+			//kutengOne.PublishTopic("Hello kuteng topic one!" + strconv.Itoa(i))
+			kutengTwo.PublishTopic("Hello kuteng topic Two!" + strconv.Itoa(i))
+			//time.Sleep(1 * time.Second)
+			//fmt.Println(i)
+		}
 
-		}()
+	}()
 
-		go func() {
-			for i := 0; i <= 1000000; i++ {
-				//kutengOne.PublishTopic("Hello kuteng topic one!" + strconv.Itoa(i))
-				kutengThree.PublishTopic("Hello kuteng topic three!" + strconv.Itoa(i))
-				//time.Sleep(1 * time.Second)
-				//fmt.Println(i)
-			}
+	go func() {
+		for i := 0; i <= 1000000; i++ {
+			//kutengOne.PublishTopic("Hello kuteng topic one!" + strconv.Itoa(i))
+			kutengThree.PublishTopic("Hello kuteng topic three!" + strconv.Itoa(i))
+			//time.Sleep(1 * time.Second)
+			//fmt.Println(i)
+		}
 
-	    }()*/
-
+	}()*/
 	select {}
 }

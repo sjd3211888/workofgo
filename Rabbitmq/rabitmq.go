@@ -8,7 +8,7 @@ import (
 )
 
 //连接信息
-//const MQURL = "amqp://sjd:sjd@192.168.1.171:5672"
+const MQURL = "amqp://kuteng:kuteng@127.0.0.1:5672/kuteng"
 
 //rabbitMQ结构体
 type RabbitMQ struct {
@@ -25,7 +25,7 @@ type RabbitMQ struct {
 }
 
 //创建结构体实例
-func NewRabbitMQ(queueName string, exchange string, key string, MQURL string) *RabbitMQ {
+func NewRabbitMQ(queueName string, exchange string, key string) *RabbitMQ {
 	return &RabbitMQ{QueueName: queueName, Exchange: exchange, Key: key, Mqurl: MQURL}
 }
 
@@ -45,9 +45,9 @@ func (r *RabbitMQ) failOnErr(err error, message string) {
 
 //话题模式
 //创建RabbitMQ实例
-func NewRabbitMQTopic(exchangeName string, routingKey string, MQURL string) *RabbitMQ {
+func NewRabbitMQTopic(exchangeName string, routingKey string) *RabbitMQ {
 	//创建RabbitMQ实例
-	rabbitmq := NewRabbitMQ("", exchangeName, routingKey, MQURL)
+	rabbitmq := NewRabbitMQ("", exchangeName, routingKey)
 	var err error
 	//获取connection
 	rabbitmq.conn, err = amqp.Dial(rabbitmq.Mqurl)
@@ -55,9 +55,14 @@ func NewRabbitMQTopic(exchangeName string, routingKey string, MQURL string) *Rab
 	//获取channel
 	rabbitmq.channel, err = rabbitmq.conn.Channel()
 	rabbitmq.failOnErr(err, "failed to open a channel")
+	return rabbitmq
+}
 
-	err = rabbitmq.channel.ExchangeDeclare(
-		rabbitmq.Exchange,
+//话题模式发送消息
+func (r *RabbitMQ) PublishTopic(message string) {
+	//1.尝试创建交换机
+	err := r.channel.ExchangeDeclare(
+		r.Exchange,
 		//要改成topic
 		"topic",
 		true,
@@ -67,16 +72,11 @@ func NewRabbitMQTopic(exchangeName string, routingKey string, MQURL string) *Rab
 		nil,
 	)
 
-	rabbitmq.failOnErr(err, "Failed to declare an excha"+
+	r.failOnErr(err, "Failed to declare an excha"+
 		"nge")
-	return rabbitmq
-}
-
-//话题模式发送消息
-func (r *RabbitMQ) PublishTopic(message string) {
 
 	//2.发送消息
-	_ = r.channel.Publish(
+	err = r.channel.Publish(
 		r.Exchange,
 		//要设置
 		r.Key,
@@ -93,6 +93,19 @@ func (r *RabbitMQ) PublishTopic(message string) {
 //其中“*”用于匹配一个单词，“#”用于匹配多个单词（可以是零个）
 //匹配 kuteng.* 表示匹配 kuteng.hello, kuteng.hello.one需要用kuteng.#才能匹配到
 func (r *RabbitMQ) RecieveTopic() {
+	//1.试探性创建交换机
+	err := r.channel.ExchangeDeclare(
+		r.Exchange,
+		//交换机类型
+		"topic",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	r.failOnErr(err, "Failed to declare an exch"+
+		"ange")
 	//2.试探性创建队列，这里注意队列名称不要写
 	q, err := r.channel.QueueDeclare(
 		"", //随机生产队列名称
@@ -112,6 +125,7 @@ func (r *RabbitMQ) RecieveTopic() {
 		r.Exchange,
 		false,
 		nil)
+
 	//消费消息
 	messges, err := r.channel.Consume(
 		q.Name,
