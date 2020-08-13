@@ -34,63 +34,111 @@ func init() {
 
 }
 func querysccdepartment(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	departmentid := c.DefaultQuery("departmentid", "1")
-	sqlcmd := fmt.Sprintf("Select s_departmentname,s_departmentid,s_grade,s_path,s_createtime,s_updatetime  from scc_department  where s_path like '%%/%v/%%'", departmentid)
+	type sccdeparment struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Departmentid string `json:"departmentid" binding:"required"`
+	}
+	var json sccdeparment
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	sqlcmd := fmt.Sprintf("Select s_departmentname,s_departmentid,s_grade,s_path,s_createtime,s_updatetime  from scc_department  where s_path like '%%/%v/%%'", json.Departmentid)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
-	} else {
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 
-	}
 }
 func querydepartmentuser(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	departmentid := c.DefaultQuery("departmentid", "1")
-	onlydispatcher := c.DefaultQuery("onlydispatcher", "0")
-	sqlcmd := fmt.Sprintf("Select s_user,s_grade,s_usertype,s_createtime,s_updatetime,s_alias,s_displayname from scc_user  where s_departmentid = '%v' and s_usertype>='%v'", departmentid, onlydispatcher)
+
+	onlydispatcher := 0
+
+	type sccdeparmentuser struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Departmentid   string `json:"departmentid" binding:"required"`
+		Onlydispatcher string `json:"onlydispatcher" binding:"required"`
+	}
+	var json sccdeparmentuser
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if "yes" == json.Onlydispatcher {
+		onlydispatcher = 1
+	} else {
+		onlydispatcher = 0
+	}
+	sqlcmd := fmt.Sprintf("Select s_user,s_grade,s_usertype,s_createtime,s_updatetime,s_alias,s_displayname from scc_user  where s_departmentid = '%v' and s_usertype>='%v'", json.Departmentid, onlydispatcher)
 
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
-	} else {
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 
-	}
 }
 func querygroup(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	sccid := c.DefaultQuery("sccid", "1")
-	sqlcmd := fmt.Sprintf("Select s_groupid from scc_groupuser where s_user = '%v'", sccid)
+	type groupinfo struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Sccid string `json:"sccid" binding:"required"`
+	}
+	var json groupinfo
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd := fmt.Sprintf("Select s_groupid from scc_groupuser where s_user = '%v'", json.Sccid)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
-	} else {
-
-	}
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 }
 func queryuser(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	sccid := c.DefaultQuery("sccid", "1")
-	sqlcmd := fmt.Sprintf("Select s_grade,s_usertype,s_createtime,s_updatetime,s_alias,s_displayname from scc_user  where s_user = '%v'", sccid)
+
+	type userinfo struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Sccid string `json:"sccid" binding:"required"`
+	}
+	var json userinfo
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd := fmt.Sprintf("Select s_grade,s_usertype,s_createtime,s_updatetime,s_alias,s_displayname from scc_user  where s_user = '%v'", json.Sccid)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
-	} else {
-
-	}
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 }
 func querygroupuser(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	groupid := c.DefaultQuery("groupid", "1")
-	sqlcmd := fmt.Sprintf("Select s_groupname,s_grade,s_grouptype,s_createtime,s_updatetime,s_creater from scc_group where s_groupid = %v", groupid)
+
+	type groupuserinfo struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Groupid string `json:"groupid" binding:"required"`
+	}
+	var json groupuserinfo
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	sqlcmd := fmt.Sprintf("Select s_groupname,s_grade,s_grouptype,s_createtime,s_updatetime,s_creater from scc_group where s_groupid = %v", json.Groupid)
 	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
-	sqlcmd1 := fmt.Sprintf("Select scc_groupuser.s_user,scc_groupuser.s_displayname,scc_groupuser.s_grade,scc_groupuser.s_usertype,scc_groupuser.s_createtime,scc_groupuser.s_updatetime,scc_user.s_alias from scc_groupuser inner join scc_user on scc_groupuser.s_user =scc_user.s_user where scc_groupuser.s_groupid= %v", groupid)
+	sqlcmd1 := fmt.Sprintf("Select scc_groupuser.s_user,scc_groupuser.s_displayname,scc_groupuser.s_grade,scc_groupuser.s_usertype,scc_groupuser.s_createtime,scc_groupuser.s_updatetime,scc_user.s_alias from scc_groupuser inner join scc_user on scc_groupuser.s_user =scc_user.s_user where scc_groupuser.s_groupid= %v", json.Groupid)
 	sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
-	tmggroupid := fmt.Sprintf("group_%s", groupid)
+	tmggroupid := fmt.Sprintf("group_%s", json.Groupid)
 	newmsg, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, "newestmsg")
 	tmpmsg := map[string]string{"lastmsg": newmsg}
 	sqlresult = append(sqlresult, tmpmsg)
@@ -99,13 +147,16 @@ func querygroupuser(c *gin.Context) {
 		fmt.Println(sqlresult1[i]["s_user"])
 		userstatus, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, sqlresult1[i]["s_user"])
 		//statusmap := map[string]string{"status": userstatus}
-		sqlresult1[i]["status"] = userstatus
-	}
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"groupinfo": sqlresult, "userinfo": sqlresult1}})
-	} else {
+		if "" == userstatus {
+			sqlresult1[i]["status"] = "0"
+		} else {
+			sqlresult1[i]["status"] = userstatus
+		}
 
 	}
+
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"groupinfo": sqlresult, "userinfo": sqlresult1}})
+
 }
 func queryofflinemsg(c *gin.Context) {
 	type personofflinemsg struct {
@@ -412,22 +463,31 @@ func querynearbyscc(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sccresult})
 }
 func querysccdetail(c *gin.Context) {
-	bjson := c.DefaultQuery("json", "yes")
-	sccid := c.DefaultQuery("sccid", "0")
-	sqlcmd := fmt.Sprintf("select  sccid,post,mailbox,address,phone,mobliephone from scc_userdetailed where sccid='%v'", sccid)
-	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
-	if "yes" == bjson {
-		c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
-	} else {
 
+	type userdetail struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Sccid string `json:"sccid" binding:"required"`
 	}
+	var json userdetail
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd := fmt.Sprintf("select  sccid,post,mailbox,address,phone,mobliephone from scc_userdetailed where sccid='%v'", json.Sccid)
+	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
+
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+
 }
 func setrouter(r *gin.Engine) {
-	r.GET("/querydepartment", querysccdepartment)
-	r.GET("/querydepartmentuser", querydepartmentuser)
-	r.GET("/querygroup", querygroup)
-	r.GET("/queryuser", queryuser)
-	r.GET("/querygroupuser", querygroupuser)
+	r.POST("/querydepartment", querysccdepartment)
+	r.POST("/querydepartmentuser", querydepartmentuser)
+	r.POST("/querygroup", querygroup)
+	r.POST("/queryuser", queryuser)
+	r.POST("/querygroupuser", querygroupuser)
 	r.POST("/queryofflinemsg", queryofflinemsg)
 	r.POST("/queryRecnetSession", queryRecnetSession)
 	r.POST("/reportgps", reportgps)
@@ -435,6 +495,6 @@ func setrouter(r *gin.Engine) {
 	r.POST("/querypersonhistoryim", querypersonhistoryim)
 	r.POST("/querygrouphistoryim", querygrouphistoryim)
 	r.POST("/moduserdetail", moduserdetail)
-	r.GET("/querysccuserdetail", querysccdetail)
+	r.POST("/querysccuserdetail", querysccdetail)
 	r.POST("/querynearbyscc", querynearbyscc)
 }

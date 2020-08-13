@@ -1,7 +1,9 @@
 package fstoesl
 
 import (
+	"encoding/json"
 	"fmt"
+	RabbitMQ "golearn/Rabbitmq"
 	"strings"
 	"sync"
 	"time"
@@ -36,13 +38,38 @@ type Freeswitchuser struct {
 	usercallinfo []*Callinfo
 }
 type Fseslinfo struct {
-	fslock   sync.Mutex
-	userinfo map[string]*Freeswitchuser
+	fslock         sync.Mutex
+	userinfo       map[string]*Freeswitchuser
+	fsclient       *Client
+	rabbitmqpusher *RabbitMQ.RabbitMQ
 }
 
-var sccfsinfo Fseslinfo
+//   这个函数在在线程里有锁的清空下调用 不用特意加锁
+func getuserinfo(userinfo *Freeswitchuser) (info string) {
+	tmpinfo := make(map[string]interface{}, 0)
+	tmpinfo["uid"] = userinfo.sccid
+	tmpinfo["status"] = userinfo.iuserstatus
+	len := len(userinfo.usercallinfo)
+	callinfo := make([]map[string]interface{}, 0)
+	for i := 0; i < len; i++ {
+		callinfosub := make(map[string]interface{})
+		callinfosub["callernum"] = userinfo.usercallinfo[i].callernum
+		callinfosub["calleenum"] = userinfo.usercallinfo[i].calleenum
+		callinfosub["application"] = userinfo.usercallinfo[i].application
+		callinfosub["applicationdata"] = userinfo.usercallinfo[i].applicationdata
+		callinfosub["buuid"] = userinfo.usercallinfo[i].buuid
+		callinfosub["uuid"] = userinfo.usercallinfo[i].uuid
+		callinfosub["callstarttime"] = userinfo.usercallinfo[i].callstarttime
+		callinfo = append(callinfo, callinfosub)
+	}
+	tmpinfo["callinfo"] = callinfo
 
-func handlemsg(msg map[string]string) {
+	mjson, _ := json.Marshal(tmpinfo)
+	mString := string(mjson)
+	//fmt.Println("print mString:", mString)
+	return mString
+}
+func (sccfsinfo *Fseslinfo) handlemsg(msg map[string]string) {
 	if value, ok := msg["Event-Name"]; ok {
 		if "CUSTOM" == value {
 			if subevent, ok1 := msg["Event-Subclass"]; ok1 {
@@ -57,7 +84,9 @@ func handlemsg(msg map[string]string) {
 								if host, bexist3 := msg["from-host"]; bexist3 {
 									existuserinfo.userip = host
 								}
-								//push_userinfo(tmpuid,itfreuser->second.iuserstatus);推送到rabbitmq
+								existuserinfo.sccid = existuser
+								tmptopic := fmt.Sprintf("SCC.onlinestatus.%v", existuser)
+								sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 							}
 						} else {
 							//不存在就添加
@@ -66,9 +95,11 @@ func handlemsg(msg map[string]string) {
 							if host, bexist3 := msg["from-host"]; bexist3 {
 								tmpuserinfo.userip = host
 							}
+							tmpuserinfo.sccid = existuser
 							//fmt.Println("host ip is ", tmpuserinfo)
 							sccfsinfo.userinfo[existuser] = &tmpuserinfo
-
+							tmptopic := fmt.Sprintf("SCC.onlinestatus.%v", existuser)
+							sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(&tmpuserinfo), "SCCSIPSTATUS", tmptopic)
 						}
 						sccfsinfo.fslock.Unlock()
 					} else {
@@ -80,6 +111,9 @@ func handlemsg(msg map[string]string) {
 						sccfsinfo.fslock.Lock()
 
 						delete(sccfsinfo.userinfo, existuser)
+						tmptopic := fmt.Sprintf("SCC.offlinestatus.%v", existuser)
+						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":1,\"uid\":\"%v\"}", existuser)
+						sccfsinfo.rabbitmqpusher.PublishTopic(tmpjson, "SCCSIPSTATUS", tmptopic)
 						sccfsinfo.fslock.Unlock()
 					} else {
 						fmt.Println("from-user not exist do nothing")
@@ -89,6 +123,9 @@ func handlemsg(msg map[string]string) {
 						sccfsinfo.fslock.Lock()
 
 						delete(sccfsinfo.userinfo, existuser)
+						tmptopic := fmt.Sprintf("SCC.offlinestatus.%v", existuser)
+						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":1,\"uid\":\"%v\"}", existuser)
+						sccfsinfo.rabbitmqpusher.PublishTopic(tmpjson, "SCCSIPSTATUS", tmptopic)
 						sccfsinfo.fslock.Unlock()
 					} else {
 						fmt.Println("from-user not exist do nothing")
@@ -138,6 +175,8 @@ func handlemsg(msg map[string]string) {
 						existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
 						fmt.Println("add2")
 					}
+					tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", callername)
+					sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 				} else {
 					fmt.Println("caller not exist", callername)
 				}
@@ -162,6 +201,8 @@ func handlemsg(msg map[string]string) {
 						existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
 						fmt.Println("add4")
 					}
+					tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", calleename)
+					sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 				} else {
 					fmt.Println("callee  not exist", calleename)
 				}
@@ -204,32 +245,37 @@ func handlemsg(msg map[string]string) {
 					existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
 					fmt.Println("add6")
 				}
-				if existuserinfo, bexist1 := sccfsinfo.userinfo[calleename]; bexist1 {
-					existuserinfo.iuserstatus = existuserinfo.iuserstatus | 0x01000
-					bassign := false
-					if 0 != len(existuserinfo.usercallinfo) {
-						for _, v := range existuserinfo.usercallinfo {
-							if v.buuid == buuid || v.uuid == uuid {
-								v.uuid = uuid
-								bassign = true
-								break
-							} //这里玩意uuid都没匹配 还需要把对象加上去，目前感觉这种情况不会出现所以每家
-						}
-					} else {
-						bassign = true
-						existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
-						fmt.Println("add7")
-					}
-					if !bassign {
-						existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
-						fmt.Println("add8")
-					}
-				} else {
-					fmt.Println("callee  not exist", calleename)
-				}
+				tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", callername)
+				sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 			} else {
 				fmt.Println("caller  not exist", callername)
 			}
+			if existuserinfo, bexist1 := sccfsinfo.userinfo[calleename]; bexist1 {
+				existuserinfo.iuserstatus = existuserinfo.iuserstatus | 0x01000
+				bassign := false
+				if 0 != len(existuserinfo.usercallinfo) {
+					for _, v := range existuserinfo.usercallinfo {
+						if v.buuid == buuid || v.uuid == uuid {
+							v.uuid = uuid
+							bassign = true
+							break
+						} //这里玩意uuid都没匹配 还需要把对象加上去，目前感觉这种情况不会出现所以每家
+					}
+				} else {
+					bassign = true
+					existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
+					fmt.Println("add7")
+				}
+				if !bassign {
+					existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
+					fmt.Println("add8")
+				}
+				tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", calleename)
+				sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
+			} else {
+				fmt.Println("callee  not exist", calleename)
+			}
+
 			sccfsinfo.fslock.Unlock()
 		} else if "CHANNEL_HANGUP" == value {
 			var callername string
@@ -266,6 +312,8 @@ func handlemsg(msg map[string]string) {
 				if len(existuserinfo.usercallinfo) >= 0 {
 					existuserinfo.iuserstatus = existuserinfo.iuserstatus & 0x0001
 				}
+				tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", callername)
+				sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 			}
 
 			if existuserinfo, bexist1 := sccfsinfo.userinfo[calleename]; bexist1 {
@@ -291,6 +339,8 @@ func handlemsg(msg map[string]string) {
 				if len(existuserinfo.usercallinfo) >= 0 {
 					existuserinfo.iuserstatus = existuserinfo.iuserstatus & 0x0001
 				}
+				tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", calleename)
+				sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 			}
 			sccfsinfo.fslock.Unlock()
 		} else if "PLAYBACK_START" == value {
@@ -335,6 +385,8 @@ func handlemsg(msg map[string]string) {
 					existuserinfo.usercallinfo = append(existuserinfo.usercallinfo, &tmpcallinfo)
 					fmt.Println("add10")
 				}
+				tmptopic := fmt.Sprintf("SCC.sipcallinfo.%v", callername)
+				sccfsinfo.rabbitmqpusher.PublishTopic(getuserinfo(existuserinfo), "SCCSIPSTATUS", tmptopic)
 			}
 			sccfsinfo.fslock.Unlock()
 		} else {
@@ -345,7 +397,24 @@ func handlemsg(msg map[string]string) {
 		fmt.Println("Event-Name not exist")
 	}
 }
-func prinfstatus() {
+
+func (sccfsinfo *Fseslinfo) Hangupuser(uuid string) {
+	sendcmd := fmt.Sprintf("bgapi uuid_kill %s\r\n", uuid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+func (sccfsinfo *Fseslinfo) Servercall(callerl string, callerr string, calleeid string) {
+	sendcmd := fmt.Sprintf("bgapi originate user/%v,user/%v %v XML default\r\n", callerl, callerr, calleeid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+func (sccfsinfo *Fseslinfo) Monitoruser(callerl string, callerr string, calleeid string) {
+	sendcmd := fmt.Sprintf("bgapi originate {absolute_codec_string=PCMA}{sip_h_Call-info=<uri>;audiomode=2}user/%s,user/%s %s XML default\r\n", callerl, callerr, calleeid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+func (sccfsinfo *Fseslinfo) Yellinguser(callerl string, callerr string, calleeid string) {
+	sendcmd := fmt.Sprintf("bgapi originate {absolute_codec_string=PCMA}user/%s,user/%s &bridge({sip_h_Call-info=<uri>;audiomode=1}user/%s)\r\n", callerl, callerr, calleeid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+func (sccfsinfo *Fseslinfo) prinfstatus() {
 	tiker := time.NewTicker(time.Second * 24)
 	for i := 0; ; i++ {
 
@@ -361,7 +430,7 @@ func prinfstatus() {
 		sccfsinfo.fslock.Unlock()
 	}
 }
-func fseslclientrun() {
+func (sccfsinfo *Fseslinfo) Fseslclientrun() {
 
 	// Boost it as much as it can go ...
 	// We don't need this since Go 1.5
@@ -373,17 +442,17 @@ func fseslclientrun() {
 		Error("Error while creating new client: %s", err)
 		return
 	}
-
+	sccfsinfo.fsclient = client
 	// Apparently all is good... Let us now handle connection :)
 	// We don't want this to be inside of new connection as who knows where it my lead us.
 	// Remember that this is crutial part in handling incoming messages. This is a must!
-
+	sccfsinfo.rabbitmqpusher = RabbitMQ.NewRabbitMQTopic("amqp://sjd:sjd@39.107.237.49:5672/admin")
 	go client.Handle()
 
 	client.Send("events json PLAYBACK_START CHANNEL_ANSWER CHANNEL_ORIGINATE CHANNEL_HANGUP DTMF CUSTOM conference::maintenance sofia::register sofia::unregister sofia::sip_user_state")
 
 	//client.BgApi(fmt.Sprintf("originate %s %s", "sofia/internal/1001@127.0.0.1", "&socket(192.168.1.2:8084 async full)"))
-	go prinfstatus()
+	go sccfsinfo.prinfstatus()
 	for {
 		msg, err := client.ReadMessage()
 
@@ -398,6 +467,6 @@ func fseslclientrun() {
 		}
 
 		//Debug("Got new message: %s", msg)
-		handlemsg(msg.Headers)
+		sccfsinfo.handlemsg(msg.Headers)
 	}
 }

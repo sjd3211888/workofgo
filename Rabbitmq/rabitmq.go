@@ -7,26 +7,16 @@ import (
 	"github.com/streadway/amqp"
 )
 
-//连接信息
-const MQURL = "amqp://kuteng:kuteng@127.0.0.1:5672/kuteng"
-
 //rabbitMQ结构体
 type RabbitMQ struct {
 	conn    *amqp.Connection
 	channel *amqp.Channel
-	//队列名称
-	QueueName string
-	//交换机名称
-	Exchange string
-	//bind Key 名称
-	Key string
-	//连接信息
-	Mqurl string
+	Mqurl   string
 }
 
 //创建结构体实例
-func NewRabbitMQ(queueName string, exchange string, key string) *RabbitMQ {
-	return &RabbitMQ{QueueName: queueName, Exchange: exchange, Key: key, Mqurl: MQURL}
+func NewRabbitMQ(MQURL string) *RabbitMQ {
+	return &RabbitMQ{Mqurl: MQURL}
 }
 
 //断开channel 和 connection
@@ -45,9 +35,9 @@ func (r *RabbitMQ) failOnErr(err error, message string) {
 
 //话题模式
 //创建RabbitMQ实例
-func NewRabbitMQTopic(exchangeName string, routingKey string) *RabbitMQ {
+func NewRabbitMQTopic(MQURL string) *RabbitMQ {
 	//创建RabbitMQ实例
-	rabbitmq := NewRabbitMQ("", exchangeName, routingKey)
+	rabbitmq := NewRabbitMQ(MQURL)
 	var err error
 	//获取connection
 	rabbitmq.conn, err = amqp.Dial(rabbitmq.Mqurl)
@@ -59,10 +49,10 @@ func NewRabbitMQTopic(exchangeName string, routingKey string) *RabbitMQ {
 }
 
 //话题模式发送消息
-func (r *RabbitMQ) PublishTopic(message string) {
+func (r *RabbitMQ) PublishTopic(message string, exchangeName string, topickey string) {
 	//1.尝试创建交换机
 	err := r.channel.ExchangeDeclare(
-		r.Exchange,
+		exchangeName,
 		//要改成topic
 		"topic",
 		true,
@@ -77,9 +67,9 @@ func (r *RabbitMQ) PublishTopic(message string) {
 
 	//2.发送消息
 	err = r.channel.Publish(
-		r.Exchange,
+		exchangeName,
 		//要设置
-		r.Key,
+		topickey,
 		false,
 		false,
 		amqp.Publishing{
@@ -87,15 +77,10 @@ func (r *RabbitMQ) PublishTopic(message string) {
 			Body:        []byte(message),
 		})
 }
-
-//话题模式接受消息
-//要注意key,规则
-//其中“*”用于匹配一个单词，“#”用于匹配多个单词（可以是零个）
-//匹配 kuteng.* 表示匹配 kuteng.hello, kuteng.hello.one需要用kuteng.#才能匹配到
 func (r *RabbitMQ) RecieveTopic() {
 	//1.试探性创建交换机
 	err := r.channel.ExchangeDeclare(
-		r.Exchange,
+		"SCCSIPSTATUS",
 		//交换机类型
 		"topic",
 		true,
@@ -121,8 +106,8 @@ func (r *RabbitMQ) RecieveTopic() {
 	err = r.channel.QueueBind(
 		q.Name,
 		//在pub/sub模式下，这里的key要为空
-		r.Key,
-		r.Exchange,
+		"SCC.*.*",
+		"SCCSIPSTATUS",
 		false,
 		nil)
 
