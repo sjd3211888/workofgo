@@ -1,10 +1,9 @@
 package main
 
-import (
-	"fmt"
-	//_ "golearn/gohttp/sccservice"
-	//_ "golearn/gohttp/sccwork"
-)
+import "fmt"
+
+//_ "golearn/gohttp/sccservice"
+//_ "golearn/gohttp/sccwork"
 
 func add(base int) func(int) int {
 	return func(i int) int {
@@ -14,10 +13,15 @@ func add(base int) func(int) int {
 }
 
 func main() {
-	tmp1 := add(10)
-	fmt.Println(tmp1(1), tmp1(2))
-	// 此时tmp1和tmp2不是一个实体了
-	tmp2 := add(100)
-	fmt.Println(tmp2(1), tmp2(2))
-	fmt.Println(add(1000)(1))
+	tmp1 := make(map[string]interface{})
+	tmp1["abc"] = 1
+	tmp1["abd"] = 2
+	tmp1["abe"] = 3
+	tmp1["abf"] = 4
+	tmp1["abg"] = 5
+	tmp1["abh"] = 6
+	tmp1["abi"] = 7
+	for _, v := range tmp1 {
+		fmt.Println(v)
+	}
 }

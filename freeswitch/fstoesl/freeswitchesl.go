@@ -112,7 +112,7 @@ func (sccfsinfo *Fseslinfo) handlemsg(msg map[string]string) {
 
 						delete(sccfsinfo.userinfo, existuser)
 						tmptopic := fmt.Sprintf("SCC.offlinestatus.%v", existuser)
-						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":1,\"uid\":\"%v\"}", existuser)
+						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":0,\"uid\":\"%v\"}", existuser)
 						sccfsinfo.rabbitmqpusher.PublishTopic(tmpjson, "SCCSIPSTATUS", tmptopic)
 						sccfsinfo.fslock.Unlock()
 					} else {
@@ -124,7 +124,7 @@ func (sccfsinfo *Fseslinfo) handlemsg(msg map[string]string) {
 
 						delete(sccfsinfo.userinfo, existuser)
 						tmptopic := fmt.Sprintf("SCC.offlinestatus.%v", existuser)
-						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":1,\"uid\":\"%v\"}", existuser)
+						tmpjson := fmt.Sprintf("{\"callinfo\":[],\"status\":0,\"uid\":\"%v\"}", existuser)
 						sccfsinfo.rabbitmqpusher.PublishTopic(tmpjson, "SCCSIPSTATUS", tmptopic)
 						sccfsinfo.fslock.Unlock()
 					} else {
@@ -446,7 +446,7 @@ func (sccfsinfo *Fseslinfo) Fseslclientrun() {
 	// Apparently all is good... Let us now handle connection :)
 	// We don't want this to be inside of new connection as who knows where it my lead us.
 	// Remember that this is crutial part in handling incoming messages. This is a must!
-	sccfsinfo.rabbitmqpusher = RabbitMQ.NewRabbitMQTopic("amqp://sjd:sjd@39.107.237.49:5672/admin")
+	sccfsinfo.rabbitmqpusher = RabbitMQ.NewRabbitMQTopic("amqp://sjd:sjd@*.*.*.*:5672/admin")
 	go client.Handle()
 
 	client.Send("events json PLAYBACK_START CHANNEL_ANSWER CHANNEL_ORIGINATE CHANNEL_HANGUP DTMF CUSTOM conference::maintenance sofia::register sofia::unregister sofia::sip_user_state")

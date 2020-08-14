@@ -24,7 +24,7 @@ func init() {
 
 		setrouter(r)
 		if err := r.Run(":9980"); err != nil {
-			fmt.Println("startup service failed, err:%v\n", err)
+			fmt.Println("startup service failed, err:\n", err)
 		}
 	}()
 

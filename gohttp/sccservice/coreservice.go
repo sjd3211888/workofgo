@@ -28,7 +28,7 @@ func init() {
 
 		setrouter(r)
 		if err := r.Run(":9888"); err != nil {
-			fmt.Println("startup service failed, err:%v\n", err)
+			fmt.Println("startup service failed, err:\n", err)
 		}
 	}()
 
@@ -148,7 +148,7 @@ func querygroupuser(c *gin.Context) {
 		userstatus, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, sqlresult1[i]["s_user"])
 		//statusmap := map[string]string{"status": userstatus}
 		if "" == userstatus {
-			sqlresult1[i]["status"] = "0"
+			sqlresult1[i]["status"] = "-1"
 		} else {
 			sqlresult1[i]["status"] = userstatus
 		}
