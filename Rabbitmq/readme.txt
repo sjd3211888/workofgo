@@ -1,0 +1,1 @@
+rabbitmq的底层封装，目前还不完善 一个单channel 目前想做成 一个connecting N个channel的模式 todo

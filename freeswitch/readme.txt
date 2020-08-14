@@ -1,0 +1,1 @@
+从fsesl连接获得数据 推送到rabbitmq上
