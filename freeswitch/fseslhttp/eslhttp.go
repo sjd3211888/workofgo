@@ -6,6 +6,7 @@ import (
 
 	fstoesl "golearn/freeswitch/fstoesl"
 
+	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,15 +16,21 @@ func Setsccfsinfo(info *fstoesl.Fseslinfo) {
 	sccfsinfo = info
 }
 func init() {
-	go func() {
+
+	var conf map[string]map[string]string
+	if _, err := toml.DecodeFile("./sccconfig.toml", &conf); err != nil {
+		// handle error
+	}
+	Serhost := conf["sccfs"]["Httpserverhost"]
+	go func(Serhost string) {
 		gin.SetMode(gin.ReleaseMode)
 		r := gin.Default()
 
 		setrouter(r)
-		if err := r.Run(":19980"); err != nil {
+		if err := r.Run(Serhost); err != nil {
 			fmt.Println("startup service failed, err:\n", err)
 		}
-	}()
+	}(Serhost)
 
 }
 func scchangupuser(c *gin.Context) {

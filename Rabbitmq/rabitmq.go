@@ -130,6 +130,6 @@ func (r *RabbitMQ) RecieveTopic() {
 		}
 	}()
 
-	fmt.Println("退出请按 CTRL+C\n")
+	fmt.Println("退出请按 CTRL+C")
 	<-forever
 }

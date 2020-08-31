@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	RabbitMQ "golearn/Rabbitmq"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	. "github.com/0x19/goesl"
+	"github.com/BurntSushi/toml"
 )
 
 type Callinfo struct {
@@ -398,20 +400,78 @@ func (sccfsinfo *Fseslinfo) handlemsg(msg map[string]string) {
 	}
 }
 
+//
 func (sccfsinfo *Fseslinfo) Hangupuser(uuid string) {
 	sendcmd := fmt.Sprintf("bgapi uuid_kill %s\r\n", uuid)
 	sccfsinfo.fsclient.BgApi(sendcmd)
 }
+
+//
 func (sccfsinfo *Fseslinfo) Servercall(callerl string, callerr string, calleeid string) {
 	sendcmd := fmt.Sprintf("bgapi originate user/%v,user/%v %v XML default\r\n", callerl, callerr, calleeid)
 	sccfsinfo.fsclient.BgApi(sendcmd)
 }
+
+//
 func (sccfsinfo *Fseslinfo) Monitoruser(callerl string, callerr string, calleeid string) {
 	sendcmd := fmt.Sprintf("bgapi originate {absolute_codec_string=PCMA}{sip_h_Call-info=<uri>;audiomode=2}user/%s,user/%s %s XML default\r\n", callerl, callerr, calleeid)
 	sccfsinfo.fsclient.BgApi(sendcmd)
 }
+
+//
 func (sccfsinfo *Fseslinfo) Yellinguser(callerl string, callerr string, calleeid string) {
 	sendcmd := fmt.Sprintf("bgapi originate {absolute_codec_string=PCMA}user/%s,user/%s &bridge({sip_h_Call-info=<uri>;audiomode=1}user/%s)\r\n", callerl, callerr, calleeid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+//
+func (sccfsinfo *Fseslinfo) EslsendIMmessage(fromuid, touid, iminfo, hostip string) {
+	sendcmd := fmt.Sprintf("bgapi chat sip|%v|%v@%v|%v", fromuid, touid, hostip, iminfo)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+//
+func (sccfsinfo *Fseslinfo) Eslmonitorcall(uid, uuid string) {
+	sendcmd := fmt.Sprintf("bgapi originate {absolute_codec_string=PCMA}user/%v &eavesdrop(%v)\r\n", uid, uuid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+//
+func (sccfsinfo *Fseslinfo) Eslinsertcall(uid, uuid string) {
+	sendcmd := fmt.Sprintf("bgapi originate user/%v &three_way(%v)\r\n", uid, uuid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+//
+func (sccfsinfo *Fseslinfo) Sccdisassembecall(replaceuid string, aleg int, call_uuid string) {
+	var sendcmd string
+	if 0 == aleg {
+		sendcmd = fmt.Sprintf("bgapi uuid_transfer %s -bleg %s xml default\r\n", call_uuid, replaceuid)
+	} else {
+		sendcmd = fmt.Sprintf("bgapi uuid_transfer %s -aleg %s xml default\r\n", call_uuid, replaceuid)
+	}
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+// 向esl发送呼叫转移
+func (sccfsinfo *Fseslinfo) Esltranfercall(uid string, uuid string) {
+
+	sendcmd := fmt.Sprintf("bgapi originate {origination_caller_id_number=000}user/%v 'eavesdrop:%v' inline", uid, uuid)
+
+	sccfsinfo.fsclient.BgApi(sendcmd)
+}
+
+// 向esl发送录音命令
+func (sccfsinfo *Fseslinfo) Eslrecordcall(uuid string, filepath string, bstart int) {
+	forwardpath := "/home/monitor/records/"
+	sendcmd := fmt.Sprintf("uuid_setvar %v enable_file_write_buffering false", uuid)
+	sccfsinfo.fsclient.BgApi(sendcmd)
+	forwardpath = (forwardpath + filepath)
+	if 1 == bstart {
+		sendcmd = fmt.Sprintf("bgapi uuid_record %v start %v", uuid, forwardpath)
+	} else {
+		sendcmd = fmt.Sprintf("bgapi uuid_record %s stop %s", uuid, forwardpath)
+	}
 	sccfsinfo.fsclient.BgApi(sendcmd)
 }
 func (sccfsinfo *Fseslinfo) prinfstatus() {
@@ -430,13 +490,31 @@ func (sccfsinfo *Fseslinfo) prinfstatus() {
 		sccfsinfo.fslock.Unlock()
 	}
 }
+
+//运行fsclinet
 func (sccfsinfo *Fseslinfo) Fseslclientrun() {
 
 	// Boost it as much as it can go ...
 	// We don't need this since Go 1.5
 	// runtime.GOMAXPROCS(runtime.NumCPU())
+	var conf map[string]map[string]string
+	if _, err := toml.DecodeFile("./sccconfig.toml", &conf); err != nil {
+		// handle error
+	}
+	/*Host := conf["sccwork"]["Host"]
+	Username := conf["sccwork"]["Username"]
+	Password := conf["sccwork"]["Password"]
+	Dbname := conf["sccwork"]["Dbname"]
+	Port := conf["sccwork"]["Port"]
+	iport, _ := strconv.Atoi(Port)
+	Serhost := conf["sccwork"]["Httpserverhost"]*/
+	Fsip := conf["sccfs"]["Fsip"]
+	Fsport := conf["sccfs"]["Fsport"]
+	Fspssword := conf["sccfs"]["Fspssword"]
+	RabbitMQIP := conf["sccfs"]["RabbitMQIP"]
+	iport, _ := strconv.Atoi(Fsport)
+	client, err := NewClient(Fsip, uint(iport), Fspssword, 10)
 
-	client, err := NewClient("192.168.1.200", 8021, "ClueCon", 10)
 	sccfsinfo.userinfo = make(map[string]*Freeswitchuser, 0)
 	if err != nil {
 		Error("Error while creating new client: %s", err)
@@ -446,7 +524,7 @@ func (sccfsinfo *Fseslinfo) Fseslclientrun() {
 	// Apparently all is good... Let us now handle connection :)
 	// We don't want this to be inside of new connection as who knows where it my lead us.
 	// Remember that this is crutial part in handling incoming messages. This is a must!
-	sccfsinfo.rabbitmqpusher = RabbitMQ.NewRabbitMQTopic("amqp://sjd:sjd@*.*.*.*:5672/admin")
+	sccfsinfo.rabbitmqpusher = RabbitMQ.NewRabbitMQTopic(RabbitMQIP)
 	go client.Handle()
 
 	client.Send("events json PLAYBACK_START CHANNEL_ANSWER CHANNEL_ORIGINATE CHANNEL_HANGUP DTMF CUSTOM conference::maintenance sofia::register sofia::unregister sofia::sip_user_state")

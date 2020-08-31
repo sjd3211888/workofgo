@@ -8,7 +8,11 @@ import (
 	"strconv"
 	"time"
 
+	. "golearn/sccprotobuf"
+
+	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"
+	"github.com/golang/protobuf/proto"
 )
 
 type coreinfo struct {
@@ -19,18 +23,31 @@ type coreinfo struct {
 var sccinfo coreinfo
 
 func init() {
-	go func() {
-		sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "SCC", 3306)
-		sccinfo.tmpredis.Redisip = ("127.0.0.1:6379")
+	var conf map[string]map[string]string
+	if _, err := toml.DecodeFile("./sccconfig.toml", &conf); err != nil {
+		// handle error
+	}
+	Host := conf["coreservice"]["Host"]
+	Username := conf["coreservice"]["Username"]
+	Password := conf["coreservice"]["Password"]
+	Dbname := conf["coreservice"]["Dbname"]
+	Port := conf["coreservice"]["Port"]
+	iport, _ := strconv.Atoi(Port)
+	Serhost := conf["coreservice"]["Httpserverhost"]
+	Redisip := conf["coreservice"]["Redisip"]
+	//fmt.Println("Hostxxxxxxxxxxxxxx", Host)
+	go func(Host string, Username string, Password string, Dbname string, Serhost string, Redisip string, iport int) {
+		sccinfo.tmpsql.Initmysql(Host, Username, Password, Dbname, iport)
+		sccinfo.tmpredis.Redisip = (Redisip)
 		sccinfo.tmpredis.ConnectRedis()
 		gin.SetMode(gin.ReleaseMode)
 		r := gin.Default()
 
 		setrouter(r)
-		if err := r.Run(":9888"); err != nil {
+		if err := r.Run(Serhost); err != nil {
 			fmt.Println("startup service failed, err:\n", err)
 		}
-	}()
+	}(Host, Username, Password, Dbname, Serhost, Redisip, iport)
 
 }
 func querysccdepartment(c *gin.Context) {
@@ -119,6 +136,13 @@ func queryuser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 }
+func convemapstringtointerface(data map[string]string) map[string]interface{} {
+	interfacedata := make(map[string]interface{})
+	for k, v := range data {
+		interfacedata[k] = v
+	}
+	return interfacedata
+}
 func querygroupuser(c *gin.Context) {
 
 	type groupuserinfo struct {
@@ -139,12 +163,28 @@ func querygroupuser(c *gin.Context) {
 	sqlcmd1 := fmt.Sprintf("Select scc_groupuser.s_user,scc_groupuser.s_displayname,scc_groupuser.s_grade,scc_groupuser.s_usertype,scc_groupuser.s_createtime,scc_groupuser.s_updatetime,scc_user.s_alias from scc_groupuser inner join scc_user on scc_groupuser.s_user =scc_user.s_user where scc_groupuser.s_groupid= %v", json.Groupid)
 	sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 	tmggroupid := fmt.Sprintf("group_%s", json.Groupid)
-	newmsg, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, "newestmsg")
-	tmpmsg := map[string]string{"lastmsg": newmsg}
-	sqlresult = append(sqlresult, tmpmsg)
+	newmsg, _ := sccinfo.tmpredis.SccredisBHget(tmggroupid, "newestmsg")
+	data := &SccIMPush{}
+	proto.Unmarshal(newmsg, data)
+	//("反序列化之后的信息为：", data)
+
+	//	sqlresult = append(sqlresult, tmpmsg)
+	lastmsg := make(map[string]interface{})
+	lastmsg["messageid"] = data.GetMessageid()
+	lastmsg["fromsccid"] = data.GetFromsccid()
+	lastmsg["tosccid"] = data.GetTosccid()
+	lastmsg["sendtype"] = data.GetSendtype()
+	lastmsg["imtype"] = data.GetImtype()
+	lastmsg["iminfo"] = data.GetIminfo()
+	lastmsg["filetpath"] = data.GetFiletpath()
+	lastmsg["createtime"] = data.GetCreatetime()
+	lastmsg["groupmessageid"] = data.GetGroupmessageid()
+
+	sqlresultinterface := convemapstringtointerface(sqlresult[0]) //把查询的结果转换为[string]interface{}
+	sqlresultinterface["lastmsg"] = lastmsg
 	for i := range sqlresult1 {
 
-		fmt.Println(sqlresult1[i]["s_user"])
+		//(sqlresult1[i]["s_user"])
 		userstatus, _ := sccinfo.tmpredis.SccredisHget(tmggroupid, sqlresult1[i]["s_user"])
 		//statusmap := map[string]string{"status": userstatus}
 		if "" == userstatus {
@@ -155,7 +195,7 @@ func querygroupuser(c *gin.Context) {
 
 	}
 
-	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"groupinfo": sqlresult, "userinfo": sqlresult1}})
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"groupinfo": sqlresultinterface, "userinfo": sqlresult1}})
 
 }
 func queryofflinemsg(c *gin.Context) {
@@ -174,7 +214,29 @@ func queryofflinemsg(c *gin.Context) {
 	scckey := fmt.Sprintf("offlinemsg_%s", json.Sccid)
 	myredisresult, _ := sccinfo.tmpredis.SccredisGetAll(scckey)
 	sccinfo.tmpredis.SccredisDel(scckey)
-	c.JSON(http.StatusOK, gin.H{"result": "success", "data": myredisresult})
+
+	Offlinemsg := make([]map[string]interface{}, 0)
+	for _, v := range myredisresult {
+		data := &SccIMPush{}
+		b := []byte(v)
+		proto.Unmarshal(b, data)
+		//fmt.Println(data)
+		onemsg := make(map[string]interface{})
+		onemsg["messageid"] = data.GetMessageid()
+		onemsg["fromsccid"] = data.GetFromsccid()
+		onemsg["tosccid"] = data.GetTosccid()
+		onemsg["sendtype"] = data.GetSendtype()
+		onemsg["imtype"] = data.GetImtype()
+		onemsg["iminfo"] = data.GetIminfo()
+		onemsg["filetpath"] = data.GetFiletpath()
+		onemsg["createtime"] = data.GetCreatetime()
+		Offlinemsg = append(Offlinemsg, onemsg)
+	}
+
+	//sqlresultinterface := convemapstringtointerface(sqlresult[0]) //把查询的结果转换为[string]interface{}
+	//sqlresultinterface["lastmsg"] = lastmsg
+
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": Offlinemsg})
 }
 func queryRecnetSession(c *gin.Context) {
 	type personofflinemsg struct {
@@ -213,9 +275,9 @@ func reportgps(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	fmt.Println(json.Sccid)
+	//fmt.Println(json.Sccid)
 	sqlcmd := fmt.Sprintf("insert into gpsinfo(sccid,longitude,latitude,reporttime,gps,angle,speed,description) values('%v','%v','%v','%v','%v','%v','%v','%v');", json.Sccid, json.Longitude, json.Latitude, time.Now().Unix(), json.Gps, json.Angle, json.Speed, json.Description)
-	fmt.Println(sqlcmd)
+	//fmt.Println(sqlcmd)
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
 	sccinfo.tmpredis.SccredisAddgps(json.Longitude, json.Latitude, json.Sccid)
 	c.JSON(http.StatusOK, gin.H{"status": "200"})
@@ -245,9 +307,8 @@ func querygps(c *gin.Context) {
 	var fromcount = 0
 	if _, ok := sqlresult[0]["count(*)"]; ok {
 		count, _ := strconv.Atoi(sqlresult[0]["count(*)"])
-		fmt.Println(sqlresult) //存在
+		//(sqlresult) //存在
 		if 0 != count {
-			fmt.Println("存在 updata")
 			if 0 == json.Pagenum {
 				pagenum = 1 //不存在第0页
 			}
@@ -273,19 +334,18 @@ func querygps(c *gin.Context) {
 				return
 			}
 			if "yes" == json.Needdescription {
-				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed,description from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
+				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed,description from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' order by id  limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
 				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
 				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "gpsinfo": sqlresult}})
 				return
 			} else {
-				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
+				sqlcmd1 := fmt.Sprintf("Select longitude,latitude,reporttime,gps,angle,speed from gpsinfo where sccid = '%v' and reporttime > '%v' and reporttime < '%v' order by id  limit %v,%v", json.Sccid, json.Starttime, json.Endtime, fromcount, numberperpage)
 				sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
 				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "totoal": count, "gpsinfo": sqlresult}})
 				return
 			}
 
 		} else {
-			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
 		}
 	}
@@ -312,9 +372,8 @@ func querypersonhistoryim(c *gin.Context) {
 	var fromcount = 0
 	if _, ok := sqlresult[0]["count(*)"]; ok {
 		count, _ := strconv.Atoi(sqlresult[0]["count(*)"])
-		fmt.Println(sqlresult) //存在
+		//fmt.Println(sqlresult) //存在
 		if 0 != count {
-			fmt.Println("存在 updata")
 			if 0 == json.Pagenum {
 				pagenum = 1 //不存在第0页
 			}
@@ -333,11 +392,10 @@ func querypersonhistoryim(c *gin.Context) {
 					fromcount = 0
 				}
 			}
-			sqlcmd1 := fmt.Sprintf("select id,fromsccid,tosccid,iminfo,imtype,filepath,created from scc_IMMessage where fromsccid= '%v' and tosccid = '%v' or fromsccid= '%v' and tosccid = '%v' limit %v,%v", json.Sccid, json.Peerid, json.Peerid, json.Sccid, fromcount, numberperpage)
+			sqlcmd1 := fmt.Sprintf("select id,fromsccid,tosccid,iminfo,imtype,filepath,created from scc_IMMessage where fromsccid= '%v' and tosccid = '%v' or fromsccid= '%v' and tosccid = '%v' order by id  limit %v,%v", json.Sccid, json.Peerid, json.Peerid, json.Sccid, fromcount, numberperpage)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "msginfo": sqlresult}})
 		} else {
-			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
 		}
 	}
@@ -364,9 +422,8 @@ func querygrouphistoryim(c *gin.Context) {
 	var fromcount = 0
 	if _, ok := sqlresult[0]["count(*)"]; ok {
 		count, _ := strconv.Atoi(sqlresult[0]["count(*)"])
-		fmt.Println(sqlresult) //存在
+		//(sqlresult) //存在
 		if 0 != count {
-			fmt.Println("存在 updata", count)
 			if 0 == json.Pagenum {
 				pagenum = 1 //不存在第0页
 			}
@@ -385,12 +442,11 @@ func querygrouphistoryim(c *gin.Context) {
 					fromcount = 0
 				}
 			}
-			sqlcmd1 := fmt.Sprintf("select id,fromsccid,groupid,iminfo,imtype,filepath,created,msgid from scc_IMGROUPMessage where groupid = '%v' limit %v,%v", json.Groupid, fromcount, numberperpage)
-			fmt.Println(sqlcmd1)
+			sqlcmd1 := fmt.Sprintf("select id,fromsccid,groupid,iminfo,imtype,filepath,created,msgid from scc_IMGROUPMessage where groupid = '%v' order by id  limit %v,%v", json.Groupid, fromcount, numberperpage)
+			//(sqlcmd1)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"pagenum": pagenum, "total": count, "msginfo": sqlresult}})
 		} else {
-			fmt.Println("不存在 insert")
 			c.JSON(http.StatusOK, gin.H{"result": "success"})
 		}
 	}
@@ -419,17 +475,15 @@ func moduserdetail(c *gin.Context) {
 
 	if _, ok := sqlresult[0]["count(*)"]; ok {
 
-		fmt.Println(sqlresult) //存在
+		//fmt.Println(sqlresult) //存在
 		if "0" != sqlresult[0]["count(*)"] {
-			fmt.Println("存在 updata")
 			sqlcmd := fmt.Sprintf("update scc_userdetailed  set post  = '%v' ,mailbox = '%v',address='%v',phone='%v',mobliephone='%v' where sccid = '%v'", json.Post, json.Mailbox, json.Addr, json.Phone, json.Mobilephone, json.Sccid)
-			fmt.Println(sqlcmd)
+			//(sqlcmd)
 			sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
 		} else {
 			sqlcmd := fmt.Sprintf("insert into scc_userdetailed(sccid,post,mailbox,address,phone,mobliephone) values('%v','%v','%v','%v','%v','%v')", json.Sccid, json.Post, json.Mailbox, json.Addr, json.Phone, json.Mobilephone)
-			fmt.Println(sqlcmd)
+			//fmt.Println(sqlcmd)
 			sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
-			fmt.Println("不存在 insert")
 		}
 	}
 

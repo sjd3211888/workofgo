@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,16 +18,29 @@ type coreinfo struct {
 var sccinfo coreinfo
 
 func init() {
-	go func() {
-		sccinfo.tmpsql.Initmysql("127.0.0.1", "root", "root", "sccwork", 3306)
+
+	var conf map[string]map[string]string
+	if _, err := toml.DecodeFile("./sccconfig.toml", &conf); err != nil {
+		// handle error
+	}
+	Host := conf["sccwork"]["Host"]
+	Username := conf["sccwork"]["Username"]
+	Password := conf["sccwork"]["Password"]
+	Dbname := conf["sccwork"]["Dbname"]
+	Port := conf["sccwork"]["Port"]
+	iport, _ := strconv.Atoi(Port)
+	Serhost := conf["sccwork"]["Httpserverhost"]
+	//fmt.Println("Hostxxxxxxxxxxxxxx", Host)
+	go func(Host string, Username string, Password string, Dbname string, Serhost string, iport int) {
+		sccinfo.tmpsql.Initmysql(Host, Username, Password, Dbname, iport)
 		gin.SetMode(gin.ReleaseMode)
 		r := gin.Default()
 
 		setrouter(r)
-		if err := r.Run(":9980"); err != nil {
+		if err := r.Run(Serhost); err != nil {
 			fmt.Println("startup service failed, err:\n", err)
 		}
-	}()
+	}(Host, Username, Password, Dbname, Serhost, iport)
 
 }
 
@@ -109,7 +123,7 @@ func scccreatetemplate(c *gin.Context) {
 	}
 	countcclist := len(json.Cclist)
 	if 0 == countcclist {
-		fmt.Println("CC list is null")
+		//fmt.Println("CC list is null")
 	} else {
 		for _, v := range json.Cclist {
 			sqlcmd := fmt.Sprintf("insert into scc_cc(workid,cc)values(%v,%v);", workid, v.Cc)
@@ -118,9 +132,9 @@ func scccreatetemplate(c *gin.Context) {
 
 	}
 	sqlcmd := fmt.Sprintf("insert into scc_worktempplate (workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser,researcher)values(%v,'%v',%v,%v,%v,%v,%v,%v,%v,%v);", workid, json.Templatename, json.Trade, json.Ptype, workid, workid, workid, json.Creater, json.Templateuer, json.Resrearcher)
-	fmt.Println(sqlcmd)
+	//fmt.Println(sqlcmd)
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
-	fmt.Println(json.Apporlist, json.Cclist)
+	//fmt.Println(json.Apporlist, json.Cclist)
 	strworkid := strconv.FormatInt(workid, 10)
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateid": strworkid}})
 }
@@ -176,7 +190,12 @@ func scccreateapply(c *gin.Context) {
 	sqlcmd1 := fmt.Sprintf("insert into scc_workflow(appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", appid, time.Now().Unix(), "问题创建", json.Templateid, 0, 1)
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd1, false)
 
-	c.JSON(http.StatusOK, gin.H{"result": "success"})
+	//插入一条到满意统计表
+	sqlcmd3 := fmt.Sprintf("insert into scc_statistica (appid,createtime,comment,commentuser)values(%v,%v,'%v','%v');", appid, time.Now().Unix(), json.Textinfo, json.Username)
+
+	sccinfo.tmpsql.Execsqlcmd(sqlcmd3, false)
+
+	c.JSON(http.StatusOK, gin.H{"result": "success", "appid": appid})
 }
 func sccqueryworktempplatebyworkid(workid string) []map[string]string {
 	sqlcmd2 := fmt.Sprintf("Select workid,templatename,trade,p_type,creater from scc_worktempplate where workid= '%v'", workid)
@@ -209,7 +228,7 @@ func sccqueryapply(c *gin.Context) {
 	switch json.Applytype {
 	case "4":
 		{
-			sqlcmd := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join  scc_worktempplate t2 on  t2.workid=t1.templateid  where t1.creater= %v", json.Username)
+			sqlcmd := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join  scc_worktempplate t2 on  t2.workid=t1.templateid  where t1.creater= %v", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
 				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": sqlresult}})
@@ -237,13 +256,13 @@ func sccqueryapply(c *gin.Context) {
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
 				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = '%v' and appnextnode = '%v' ", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
-				fmt.Println(sqlcmd1)
+				//(sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
 					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = '%v' and appcurentnode = '%v' and appid= '%v' order by id desc limit 1 ", sqlresult[k]["workid"], sqlresult[k]["approvertype"], sqlresult1[j]["appid"])
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
 					if 0 == len(sqlresult2) {
-						sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid='%v'", sqlresult1[j]["appid"])
+						sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid='%v'", sqlresult1[j]["appid"])
 						sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
 						workflworkresult = append(workflworkresult, sqlresult6...)
 					} else {
@@ -258,7 +277,7 @@ func sccqueryapply(c *gin.Context) {
 						if tmpsql2id > tmpsql1id { //最新审批过的id大于审批的id 证明被审批过了
 							//证明呗审批过了
 						} else {
-							sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v'", sqlresult2[0]["appid"])
+							sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v'", sqlresult2[0]["appid"])
 							sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
 							workflworkresult = append(workflworkresult, sqlresult6...)
 						}
@@ -282,7 +301,7 @@ func sccqueryapply(c *gin.Context) {
 				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = '%v' and appcurentnode = '%v'  limit 1", sqlresult[k]["workid"], sqlresult[k]["approvertype"])
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				if 0 != len(sqlresult1) {
-					sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult[k]["appid"])
+					sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult[k]["appid"])
 					sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
 					workflworkresult = append(workflworkresult, sqlresult6...)
 				}
@@ -300,14 +319,18 @@ func sccqueryapply(c *gin.Context) {
 			for k := 0; k < cccount; k++ {
 				tmpworkid := sqlresult[k]["workid"]
 				inttmpworkid, _ := strconv.Atoi(tmpworkid)
-				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v", inttmpworkid)
+				sqlcmd1 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = %v group by appid", inttmpworkid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
-				if 0 != len(sqlresult1) {
-					sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v'", sqlresult1[0]["appid"])
+				kccount := len(sqlresult1)
+				for tmplen := 0; tmplen < kccount; tmplen++ {
+					sqlcmd6 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename,sw.id,sw.appcurentnode,sw.appnextnode from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid inner join scc_workflow sw on sw.appid = t1.appid where t1.appid= %v order by id desc limit 1;", sqlresult1[tmplen]["appid"])
 					sqlresult6 := sccinfo.tmpsql.SelectData(sqlcmd6)
 					workflworkresult = append(workflworkresult, sqlresult6...)
 				}
-				fmt.Println(workflworkresult)
+				if 0 != len(sqlresult1) {
+
+				}
+				//(workflworkresult)
 			}
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": workflworkresult}})
 			break
@@ -326,9 +349,9 @@ func sccqueryapply(c *gin.Context) {
 			for k := range sqlresult {
 				tmpappid, _ := strconv.Atoi(sqlresult[k]["workid"])
 				//sqlcmd1 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater  from scc_apply where templateid = %v ", tmpappid)
-				sqlcmd1 := fmt.Sprintf("select sc.appid,sc.templateid,sc.createtime,sc.textinfo,sc.filepath,sc.telephone,sc.creater,t2.advise,t2.id,t2.createtime as workflowtime,t2.appcurentnode,t2.appnextnode,t3.templatename from scc_apply sc inner join(select sw.appid,sw.advise,sw.id,sw.createtime,sw.appcurentnode,sw.appnextnode from scc_workflow sw  order by sw.id desc) t2 on sc.appid=t2.appid inner join scc_worktempplate t3 on t3.workid=sc.templateid where sc.templateid=%v group by t2.appid;", tmpappid)
+				sqlcmd1 := fmt.Sprintf("select sc.appid,sc.templateid,sc.createtime,sc.textinfo,sc.filepath,sc.telephone,sc.creater,sc.grade,t2.advise,t2.id,t2.createtime as workflowtime,t2.appcurentnode,t2.appnextnode,t3.templatename from scc_apply sc inner join(select sw.appid,sw.advise,sw.id,sw.createtime,sw.appcurentnode,sw.appnextnode from scc_workflow sw order by id desc) t2 on sc.appid=t2.appid inner join scc_worktempplate t3 on t3.workid=sc.templateid where sc.templateid= %v order by id desc limit 1;", tmpappid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
-				fmt.Println("SSSSSSSSSS", sqlresult1)
+				//("SSSSSSSSSS", sqlresult1)
 				if 0 != len(sqlresult1) {
 					workflworkresult = append(workflworkresult, sqlresult1...)
 				}
@@ -347,15 +370,15 @@ func sccqueryapply(c *gin.Context) {
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
 				sqlcmd1 := fmt.Sprintf("Select id,appid,templateid from scc_workflow where templateid = '%v' and appnextnode = 1 ", sqlresult[k]["workid"])
-				fmt.Println("wocao ", sqlcmd1)
+				//("wocao ", sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
 					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = '%v' and appnextnode = 2 and appid= '%v' order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-					fmt.Println("wocao1 ", sqlcmd2)
+					//("wocao1 ", sqlcmd2)
 					if 0 == len(sqlresult2) {
-						fmt.Println("SS", sqlcmd2)
-						sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+						//fmt.Println("SS", sqlcmd2)
+						sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 						sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
 						workflworkresult = append(workflworkresult, sqlresult5...)
 					} else {
@@ -368,11 +391,11 @@ func sccqueryapply(c *gin.Context) {
 							tmpnext = 0
 						}
 						if tmpnext > tmpproid {
-							fmt.Println(tmpnext, tmpproid)
+							//fmt.Println(tmpnext, tmpproid)
 							//不加了
 						} else {
-							fmt.Println(tmpnext, tmpproid)
-							sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+							//fmt.Println(tmpnext, tmpproid)
+							sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v' ", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 							sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
 							workflworkresult = append(workflworkresult, sqlresult5...)
 						}
@@ -416,15 +439,15 @@ func sccqueryapply(c *gin.Context) {
 			workflworkresult := make([]map[string]string, 0)
 			for k := range sqlresult {
 				sqlcmd1 := fmt.Sprintf("Select id,appid,templateid from scc_workflow where templateid = '%v' and appnextnode = 101 ", sqlresult[k]["workid"])
-				fmt.Println("wocao ", sqlcmd1)
+				//("wocao ", sqlcmd1)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				for j := range sqlresult1 {
 					sqlcmd2 := fmt.Sprintf("Select id,appid from scc_workflow where templateid = '%v' and appnextnode = 102 and appid= '%v' order by id desc limit 1", sqlresult[k]["workid"], sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 					sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
-					fmt.Println("wocao1 ", sqlcmd2)
+					//fmt.Println("wocao1 ", sqlcmd2)
 					if 0 == len(sqlresult2) {
-						fmt.Println("SS", sqlcmd2)
-						sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v'", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
+						//fmt.Println("SS", sqlcmd2)
+						sqlcmd5 := fmt.Sprintf("Select t1.appid,t1.templateid,t1.createtime,t1.textinfo,t1.filepath,t1.telephone,t1.creater,t1.grade,t2.templatename from scc_apply t1 inner join scc_worktempplate t2 on t2.workid=t1.templateid where appid= '%v'", sqlresult1[j]["appid"]) //查询这个appid 中最大的当前执行研究的最大ID
 						sqlresult5 := sccinfo.tmpsql.SelectData(sqlcmd5)
 						workflworkresult = append(workflworkresult, sqlresult5...)
 					} else {
@@ -437,7 +460,7 @@ func sccqueryapply(c *gin.Context) {
 							tmpnext = 0
 						}
 						if tmpnext > tmpproid {
-							fmt.Println(tmpnext, tmpproid)
+							//fmt.Println(tmpnext, tmpproid)
 							//不加了
 						} else {
 							fmt.Println(tmpnext, tmpproid)
@@ -551,7 +574,7 @@ func sccapprove(c *gin.Context) {
 			tmpnextnode = 0
 		}
 		sqlcmd3 := fmt.Sprintf("Select workid from scc_approver where workid= '%v' and  approver = %v and approvertype = %v", sqlresult2[0]["templateid"], json.Username, tmpnextnode)
-		fmt.Println(sqlcmd3)
+		//fmt.Println(sqlcmd3)
 		sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
 		if 0 == len(sqlresult3) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": "no user current2"})
@@ -583,7 +606,7 @@ func sccapprove(c *gin.Context) {
 			tmpapptype = 0
 		}
 		sqlcmd3 := fmt.Sprintf("Select workid from scc_approver where workid= %v and  approver = %v and approvertype = %v ", sqlresult2[0]["templateid"], json.Username, tmpapptype)
-		fmt.Println(sqlcmd3)
+		//fmt.Println(sqlcmd3)
 		sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
 		if 0 == len(sqlresult3) {
 			c.JSON(http.StatusOK, gin.H{"result": "success", "data": "no user current2"})
@@ -597,7 +620,7 @@ func sccapprove(c *gin.Context) {
 		if tmpnextnode >= 100 {
 			sqlcmd4 := fmt.Sprintf("Select workid from scc_approver where workid= '%v'  and approvertype = %v", sqlresult2[0]["templateid"], tmpnextnode+1)
 			sqlresult4 := sccinfo.tmpsql.SelectData(sqlcmd4)
-			fmt.Println(sqlcmd4)
+			//fmt.Println(sqlcmd4)
 			if 0 == len(sqlresult4) {
 				//证明没人审批了 当前此条审批就是最后一条审批
 				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 200)
@@ -652,6 +675,7 @@ func sccresearchworkflow(c *gin.Context) {
 		Appid      string `json:"appid" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
 		Username   string `json:"username" binding:"required"`
+		Grade      string `json:"grade"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -672,6 +696,12 @@ func sccresearchworkflow(c *gin.Context) {
 	sqlcmd := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, 1, 2)
 
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
+	if "" != json.Grade {
+		sqlcmd1 := fmt.Sprintf("update scc_apply set grade=%v where appid=%v;", json.Grade, json.Appid)
+
+		sccinfo.tmpsql.Execsqlcmd(sqlcmd1, false)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
 }
 func scchandleworkflow(c *gin.Context) {
@@ -770,6 +800,30 @@ func sccaddaddcomment(c *gin.Context) {
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
 }
+func sccaddsatisfaction(c *gin.Context) {
+	type comment struct {
+		Satisfaction string `json:"satisfaction" binding:"required"`
+		Comment      string `json:"comment"`
+		Commentuser  string `json:"commentuser"`
+	}
+	var json comment
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if "yes" == json.Satisfaction {
+		sqlcmd := fmt.Sprintf("insert into scc_statistica (appid,createtime,comment,commentuser)values(%v,%v,'%v','%v');", 0, time.Now().Unix(), json.Comment, json.Commentuser)
+
+		sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
+		c.JSON(http.StatusOK, gin.H{"result": "success"})
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "不满意请走工单提交流程"})
+		return
+	}
+}
 func setrouter(r *gin.Engine) {
 	r.POST("/login", sccworklogin)
 	r.POST("/createtemplate", scccreatetemplate)
@@ -786,4 +840,5 @@ func setrouter(r *gin.Engine) {
 	r.POST("/querycclist", sccquerycclist)
 	r.POST("/queryuserinfo", sccqueryuserinfo)
 	r.POST("/addcomment", sccaddaddcomment)
+	r.POST("/addsatisfaction", sccaddsatisfaction)
 }
