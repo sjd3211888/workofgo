@@ -661,7 +661,7 @@ func sccqueryworkflow(c *gin.Context) {
 	sqlcmd2 := fmt.Sprintf("select appid,createtime,advise,templateid,appcurentnode,appnextnode,id from scc_workflow where appid= '%v'", json.Appid)
 	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
 
-	sqlcmd3 := fmt.Sprintf("select appid,templateid,createtime,textinfo,filepath,telephone,creater from scc_apply where appid= '%v'", json.Appid)
+	sqlcmd3 := fmt.Sprintf("select appid,templateid,createtime,textinfo,filepath,telephone,creater,grade from scc_apply where appid= '%v'", json.Appid)
 	sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
 
 	sqlcmd4 := fmt.Sprintf("select id,workflowid,createtime,comment,commentuser from scc_comment where appid= '%v'", json.Appid)

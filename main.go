@@ -1,24 +1,26 @@
 package main
 
-import (
-	"fmt"
-	sccliveroom "golearn/websocket"
+import "fmt"
 
-	"github.com/BurntSushi/toml"
-)
+type aa struct {
+	xxx int
+}
+type bb struct {
+	abc map[int]*aa
+	m   int
+}
+type cc struct {
+	bcd map[int]*aa
+}
 
 func main() {
-	//t := make(chan int, 1)
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
-	var conf map[string]map[string]string
-	if _, err := toml.DecodeFile("./sccconfig.toml", &conf); err != nil {
-		// handle error
-	}
-	//Host := conf["sccwork"]["Host"]
-	fmt.Println("Hostxxxxxxxxxxxxxx", conf)
-
-	go sccliveroom.StartWebsocket()
-
-	select {}
-
+	var ch chan int = make(chan int, 10)
+	close(ch)
+	ch <- 1
 }

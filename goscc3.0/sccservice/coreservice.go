@@ -536,6 +536,89 @@ func querysccdetail(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
 
 }
+func querydingbysccid(c *gin.Context) {
+
+	type dinginfo struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Sccid      string `json:"fromsccid" binding:"required"`
+		Pagenum    int    `json:"pagenum" binding:"required"`
+		Dingstatus string `json:"dingstatus" binding:"required"`
+	}
+	var json dinginfo
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var sqlcmd1 string
+	if "3" == json.Dingstatus {
+		sqlcmd1 = fmt.Sprintf("select count(*) from scc_ding where sccfromding= '%v'  or scctoding= '%v'", json.Sccid, json.Sccid)
+	} else {
+		sqlcmd1 = fmt.Sprintf("select count(*) from scc_ding where sccfromding= '%v'  or scctoding= '%v'  and dingstatus='%v'", json.Sccid, json.Sccid, json.Dingstatus)
+	}
+	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd1)
+	var pagenum = json.Pagenum
+	var numberperpage = 30
+	var fromcount = 0
+	var sqlret1 []map[string]string
+	if _, ok := sqlresult[0]["count(*)"]; ok {
+		count, _ := strconv.Atoi(sqlresult[0]["count(*)"])
+		//(sqlresult) //存在
+		if 0 != count {
+			if 0 == json.Pagenum {
+				pagenum = 1 //不存在第0页
+			}
+			if count < numberperpage {
+				if 1 == pagenum {
+					fromcount = 0
+				} else {
+					fromcount = numberperpage
+				}
+
+			} else {
+				fromcount = count - (numberperpage)*pagenum
+				if fromcount < 0 {
+					//int tmpnumberperpage = numberperpage;
+					numberperpage = fromcount + numberperpage
+					fromcount = 0
+				}
+			}
+
+			if "" == json.Dingstatus {
+				sqlcmd1 = fmt.Sprintf("select id,messgaeid,messagtype,dingtype,info,sccfromding,scctoding,dingstatus from scc_ding where sccfromding= '%v'  or scctoding= '%v'  order by id  limit %v,%v", json.Sccid, json.Sccid, fromcount, numberperpage)
+				sqlret1 = sccinfo.tmpsql.SelectData(sqlcmd1)
+			} else {
+				sqlcmd1 = fmt.Sprintf("select id,messgaeid,messagtype,dingtype,info,sccfromding,scctoding,dingstatus from scc_ding where sccfromding= '%v'  or scctoding= '%v' and dingstatus = '%v'  order by id  limit %v,%v", json.Sccid, json.Sccid, json.Dingstatus, fromcount, numberperpage)
+				sqlret1 = sccinfo.tmpsql.SelectData(sqlcmd1)
+			}
+
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlret1})
+}
+func querydingbymsgid(c *gin.Context) {
+
+	type dingbyid struct {
+		// binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+		Messagetype string `json:"messagetype" binding:"required"`
+		Messageid   string `json:"messageid" binding:"required"`
+	}
+	var json dingbyid
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	sqlcmd := fmt.Sprintf("Select id,messgaeid,messagtype,dingtype,info,sccfromding,scctoding,dingstatus from scc_ding where messgaeid = '%v' and messagtype = '%v'", json.Messageid, json.Messagetype)
+	sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
+
+	c.JSON(http.StatusOK, gin.H{"result": "success", "data": sqlresult})
+
+}
 func setrouter(r *gin.Engine) {
 	r.POST("/querydepartment", querysccdepartment)
 	r.POST("/querydepartmentuser", querydepartmentuser)
@@ -551,4 +634,6 @@ func setrouter(r *gin.Engine) {
 	r.POST("/moduserdetail", moduserdetail)
 	r.POST("/querysccuserdetail", querysccdetail)
 	r.POST("/querynearbyscc", querynearbyscc)
+	r.POST("/querydingbysccid", querydingbysccid)
+	r.POST("/querydingbymsgid", querydingbymsgid)
 }

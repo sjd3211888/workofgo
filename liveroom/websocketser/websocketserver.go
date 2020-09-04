@@ -42,6 +42,7 @@ type roominfo struct {
 
 func (roomlive *roominfo) sendmsg(username string, dat map[string]string) {
 	for k, v := range roomlive.Conn {
+		//fmt.Println("zxnmcbzxmcbzx", k, v)
 		if username != k {
 			fmt.Println("sending")
 			v.mutex.Lock()
@@ -117,7 +118,7 @@ type wsConnection struct {
 	closeChan chan byte            // 关闭通知
 	username  string               //客户端登陆的名字 默认肯定是“” 加个定时器 过了多久还没用用户名登陆就让它滚蛋
 	sccticker *time.Ticker         //定时器，如果连接没登陆就用来做校验的定时器，如果登陆了就用来做心跳的定时器
-	Conn      map[string]*roominfo //ws  所连接的直播间 可能不止一个
+	sccroom   map[string]*roominfo //ws  所连接的直播间 可能不止一个
 }
 
 func wsHandler(resp http.ResponseWriter, req *http.Request) {
@@ -136,6 +137,7 @@ func wsHandler(resp http.ResponseWriter, req *http.Request) {
 		closeChan: make(chan byte),
 		isClosed:  false,
 		sccticker: time.NewTicker(time.Second * 30),
+		sccroom:   make(map[string]*roominfo),
 	}
 	//wsConnAll[maxConnId] = wsConn
 	//	log.Println("当前在线人数", len(wsConnAll))
@@ -159,14 +161,21 @@ func (wsConn *wsConnection) chenklogin() bool {
 func (wsConn *wsConnection) processLoop() {
 	// 处理消息队列中的消息
 	// 获取到消息队列中的消息，处理完成后，发送消息给客户端
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	for {
 		msg, err := wsConn.wsRead()
 		if err != nil {
 			log.Println("获取消息出现错误222", err.Error())
 			break
 		}
-		log.Println("接收到消息 类型是", msg.messageType, string(msg.data))
-		// 修改以下内容把客户端传递的消息传递给处理程序
+		if nil == msg {
+			log.Println("channel closed end loop")
+			break
+		}
 		var dat map[string]string
 		if err := json.Unmarshal([]byte(string(msg.data)), &dat); err == nil {
 			//  证明是json，处理信令
@@ -192,7 +201,7 @@ func (wsConn *wsConnection) processLoop() {
 				case "sendmsg":
 					{
 						reply := make(map[string]string)
-						if wsConn.chenklogin() {
+						if !wsConn.chenklogin() {
 							reply["result"] = "failed"
 							reply["reason"] = "not login"
 						} else {
@@ -211,7 +220,7 @@ func (wsConn *wsConnection) processLoop() {
 					{
 
 						reply := make(map[string]string)
-						if wsConn.chenklogin() {
+						if !wsConn.chenklogin() {
 							reply["result"] = "failed"
 							reply["reason"] = "not login"
 						} else {
@@ -231,7 +240,7 @@ func (wsConn *wsConnection) processLoop() {
 				case "leaveroom":
 					{
 						reply := make(map[string]string)
-						if wsConn.chenklogin() {
+						if !wsConn.chenklogin() {
 							reply["result"] = "failed"
 							reply["reason"] = "not login"
 						} else {
@@ -254,6 +263,7 @@ func (wsConn *wsConnection) processLoop() {
 			wsConn.close()
 		}
 	}
+
 }
 
 // 处理消息队列中的消息
@@ -292,6 +302,11 @@ func (wsConn *wsConnection) wsReadLoop() {
 
 // 发送消息给客户端
 func (wsConn *wsConnection) wsWriteLoop() {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println("xxxxxxxxxxx", err) // 将 interface{} 转型为具体类型。
+		}
+	}()
 	for {
 		select {
 		// 取一个应答
@@ -351,13 +366,27 @@ func (wsConn *wsConnection) close() {
 	wsConn.wsSocket.Close()
 	wsConn.mutex.Lock()
 	wsConn.sccticker.Stop()
+
 	defer wsConn.mutex.Unlock()
 	if wsConn.isClosed == false {
 		wsConn.isClosed = true
-		// 删除这个连接的变量
-		//	delete(wsConnAll, wsConn.id)
+		for k, v := range wsConn.sccroom {
+			v.singlelock.Lock()
+			leavemsg := make(map[string]string)
+			leavemsg["username"] = "sccsystem"
+			leavemsg["roomname"] = k
+			leavemsg["msgtype"] = "sendmsg"
+			leavemsg["msg"] = wsConn.username + " leave the liveroom"
+			v.sendmsg(wsConn.username, leavemsg)
+			delete(v.Conn, wsConn.username)
+			v.singlelock.Unlock()
+		}
+		wsConn.sccroom = make(map[string]*roominfo)
 		close(wsConn.closeChan)
+		close(wsConn.inChan)
+		close(wsConn.outChan)
 	}
+	delete(liveroominfo.wsConnAll, wsConn.username)
 }
 func (wsConn *wsConnection) handlelogin(dat map[string]string) (reason string) {
 	if wsConn.username == "" {
@@ -384,16 +413,10 @@ func (wsConn *wsConnection) handlesendmsg(dat map[string]string) (reason string)
 		return "usename not mathch login"
 	}
 	if value, ok := dat["roomname"]; ok {
-		liveroominfo.rommlock.Lock()
-		if room, roomok := liveroominfo.roommap[value]; roomok {
-			for k, v := range room.Conn {
-				if username != k {
-					fmt.Println("sending")
-					v.wsWrite(1, wsConn.maptobyte(dat))
-				}
-			}
-		}
-		liveroominfo.rommlock.Unlock()
+		tmproom := wsConn.sccroom[value]
+		tmproom.singlelock.Lock()
+		tmproom.sendmsg(wsConn.username, dat)
+		tmproom.singlelock.Unlock()
 	} else {
 		return "no such room"
 	}
@@ -414,14 +437,10 @@ func (wsConn *wsConnection) enterroom(dat map[string]string) (reason string) {
 			entermsg["roomname"] = value
 			entermsg["msgtype"] = "sendmsg"
 			entermsg["msg"] = username + " enter the liveroom"
-			for k, v := range room.Conn {
-				if username != k {
-					fmt.Println("sending")
-					v.wsWrite(1, wsConn.maptobyte(entermsg))
-				}
-			}
+			room.sendmsg(wsConn.username, entermsg)
 			room.Conn[username] = wsConn
 			room.singlelock.Unlock()
+			wsConn.sccroom[value] = room
 		} else {
 			liveroominfo.rommlock.Unlock()
 			return "no such room"
@@ -437,24 +456,18 @@ func (wsConn *wsConnection) leaveroom(dat map[string]string) (reason string) {
 		return "usename not mathch login"
 	}
 	if value, ok := dat["roomname"]; ok {
-		liveroominfo.rommlock.Lock()
-		if room, roomok := liveroominfo.roommap[value]; roomok {
-			room.singlelock.Lock()
-			delete(room.Conn, username)
-			leavemsg := make(map[string]string)
-			leavemsg["username"] = "sccsystem"
-			leavemsg["roomname"] = value
-			leavemsg["msgtype"] = "sendmsg"
-			leavemsg["msg"] = username + " leave the liveroom"
-			for k, v := range room.Conn {
-				if username != k {
-					fmt.Println("sending")
-					v.wsWrite(1, wsConn.maptobyte(leavemsg))
-				}
-			}
-			room.singlelock.Unlock()
-		}
-		liveroominfo.rommlock.Unlock()
+
+		tmproom := wsConn.sccroom[value]
+		tmproom.singlelock.Lock()
+		delete(tmproom.Conn, username)
+		leavemsg := make(map[string]string)
+		leavemsg["username"] = "sccsystem"
+		leavemsg["roomname"] = value
+		leavemsg["msgtype"] = "sendmsg"
+		leavemsg["msg"] = username + " leave the liveroom"
+		tmproom.sendmsg(wsConn.username, leavemsg)
+		tmproom.singlelock.Unlock()
+		delete(wsConn.sccroom, value)
 	} else {
 		return "no such room"
 	}
