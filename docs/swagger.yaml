@@ -1,0 +1,545 @@
+definitions:
+  coreservice.Dingbyid:
+    properties:
+      groupid:
+        type: string
+      messageid:
+        type: string
+      messagetype:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - groupid
+    - messageid
+    - messagetype
+    type: object
+  coreservice.Dingfrommsgidindgroupid:
+    properties:
+      dingstatus:
+        type: string
+      groupid:
+        type: integer
+      messageid:
+        type: integer
+      pagenum:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: integer
+    required:
+    - dingstatus
+    - pagenum
+    type: object
+  coreservice.Fromdinginfo:
+    properties:
+      dingstatus:
+        type: string
+      fromsccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+      pagenum:
+        type: integer
+    required:
+    - dingstatus
+    - fromsccid
+    - pagenum
+    type: object
+  coreservice.Moduserdetail:
+    properties:
+      addr:
+        type: string
+      mailbox:
+        type: string
+      mobilephone:
+        type: string
+      phone:
+        type: string
+      post:
+        type: string
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - addr
+    - mailbox
+    - mobilephone
+    - phone
+    - post
+    - sccid
+    type: object
+  coreservice.Querrypersonimhistory:
+    properties:
+      pagenum:
+        type: integer
+      peerid:
+        type: string
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - pagenum
+    - peerid
+    - sccid
+    type: object
+  coreservice.QueryRecntSession:
+    properties:
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - sccid
+    type: object
+  coreservice.Querygps:
+    properties:
+      endtime:
+        type: integer
+      needdescription:
+        type: string
+      pagenum:
+        type: integer
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+      starttime:
+        type: integer
+    required:
+    - endtime
+    - pagenum
+    - sccid
+    - starttime
+    type: object
+  coreservice.Querygroupimhistory:
+    properties:
+      groupid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: integer
+      pagenum:
+        type: integer
+    required:
+    - groupid
+    - pagenum
+    type: object
+  coreservice.Querygroupinfo:
+    properties:
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - sccid
+    type: object
+  coreservice.Querynearby:
+    properties:
+      distance:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: integer
+      latitude:
+        type: string
+      longitude:
+        type: string
+    required:
+    - distance
+    - latitude
+    - longitude
+    type: object
+  coreservice.Querypersonofflinemsg:
+    properties:
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - sccid
+    type: object
+  coreservice.Querysccdeparment:
+    properties:
+      departmentid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - departmentid
+    type: object
+  coreservice.Querysccdeparmentuser:
+    properties:
+      departmentid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+      onlydispatcher:
+        type: string
+    required:
+    - departmentid
+    - onlydispatcher
+    type: object
+  coreservice.Queryuserdetail:
+    properties:
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - sccid
+    type: object
+  coreservice.Queryuserinfo:
+    properties:
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - sccid
+    type: object
+  coreservice.Quserygroupuserinfo:
+    properties:
+      groupid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - groupid
+    type: object
+  coreservice.Relationding:
+    properties:
+      dingstatus:
+        type: string
+      pagenum:
+        type: integer
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+      sccidstatus:
+        description: 0 是和我相关的  1 是我发送的 2 是我接收的
+        type: integer
+    required:
+    - dingstatus
+    - pagenum
+    - sccid
+    type: object
+  coreservice.Reportgps:
+    properties:
+      angle:
+        type: string
+      description:
+        type: string
+      gps:
+        type: string
+      latitude:
+        type: string
+      longitude:
+        type: string
+      sccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+      speed:
+        type: integer
+    required:
+    - gps
+    - latitude
+    - longitude
+    - sccid
+    type: object
+  coreservice.Todinginfo:
+    properties:
+      dingstatus:
+        type: string
+      pagenum:
+        type: integer
+      tosccid:
+        description: binding:"required"修饰的字段，若接收为空值，则报错，是必须字段
+        type: string
+    required:
+    - dingstatus
+    - pagenum
+    - tosccid
+    type: object
+info:
+  contact: {}
+  license: {}
+paths:
+  /moduserdetail:
+    post:
+      consumes:
+      - application/json
+      description: moduserdetail 修改用户详细信息
+      parameters:
+      - description: 修改用户信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Moduserdetail'
+      produces:
+      - application/json
+  /queryRecnetSession:
+    post:
+      consumes:
+      - application/json
+      description: queryRecnetSession 查询最近会话
+      parameters:
+      - description: 查询最近会话
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.QueryRecntSession'
+      produces:
+      - application/json
+  /querydepartment:
+    post:
+      consumes:
+      - application/json
+      description: querydepartment 查询部门信息
+      parameters:
+      - description: 查询部门信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querysccdeparment'
+      produces:
+      - application/json
+  /querydepartmentuser:
+    post:
+      consumes:
+      - application/json
+      description: querydepartmentuser 查询部门成员信息
+      parameters:
+      - description: 查询部门成员信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querysccdeparmentuser'
+      produces:
+      - application/json
+  /querydingbyfromsccid:
+    post:
+      consumes:
+      - application/json
+      description: querydingbyfromsccid
+      parameters:
+      - description: 根据被叫SCCid查询必达的情况
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Fromdinginfo'
+      produces:
+      - application/json
+  /querydingbymsgid:
+    post:
+      consumes:
+      - application/json
+      description: querydingbymsgid
+      parameters:
+      - description: 如果个人必达 messagetype是0  groupid是0  群组必达 messagetype是1 groupid是群组id
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Dingbyid'
+      produces:
+      - application/json
+  /querydingbysccidandgroupid:
+    post:
+      consumes:
+      - application/json
+      description: querydingbysccidandgroupid
+      parameters:
+      - description: 根据群组id和msessageid查询群组必达的必达情况
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Dingfrommsgidindgroupid'
+      produces:
+      - application/json
+  /querydingbytosccid:
+    post:
+      consumes:
+      - application/json
+      description: querydingbytosccid
+      parameters:
+      - description: 根据被叫SCCid查询必达的情况
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Todinginfo'
+      produces:
+      - application/json
+  /querygps:
+    post:
+      consumes:
+      - application/json
+      description: querygps 查询个人的历史轨迹
+      parameters:
+      - description: sccid和时间查询历史轨迹
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querygps'
+      produces:
+      - application/json
+  /querygroup:
+    post:
+      consumes:
+      - application/json
+      description: querygroup 查询群组信息
+      parameters:
+      - description: 查询群组信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querygroupinfo'
+      produces:
+      - application/json
+  /querygroupdingbysccid:
+    post:
+      consumes:
+      - application/json
+      description: querygroupdingbysccid
+      parameters:
+      - description: 0 是和我相关的  1 是我发送的 2 是我接收的
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Relationding'
+      produces:
+      - application/json
+  /querygrouphistoryim:
+    post:
+      consumes:
+      - application/json
+      description: querygrouphistoryim 根据群组查询历史消息
+      parameters:
+      - description: 根据群组查询历史消息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querygroupimhistory'
+      produces:
+      - application/json
+  /querygroupuser:
+    post:
+      consumes:
+      - application/json
+      description: querygroupuser 查询群组成员
+      parameters:
+      - description: 查询群组成员
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Quserygroupuserinfo'
+      produces:
+      - application/json
+  /querymsgbymsgid:
+    post:
+      consumes:
+      - application/json
+      description: querymsgbymsgid
+      parameters:
+      - description: 根据被叫SCCid查询必达的情况
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Todinginfo'
+      produces:
+      - application/json
+  /querynearbyscc:
+    post:
+      consumes:
+      - application/json
+      description: querynearbyscc 查询附近的人
+      parameters:
+      - description: 查询附近的人
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querynearby'
+      produces:
+      - application/json
+  /queryofflinemsg:
+    post:
+      consumes:
+      - application/json
+      description: queryofflinemsg 查询离线消息
+      parameters:
+      - description: 查询离线消息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querypersonofflinemsg'
+      produces:
+      - application/json
+  /querypersondingbysccid:
+    post:
+      consumes:
+      - application/json
+      description: querypersondingbysccid
+      parameters:
+      - description: 0 是和我相关的  1 是我发送的 2 是我接收的
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Relationding'
+      produces:
+      - application/json
+  /querypersonhistoryim:
+    post:
+      consumes:
+      - application/json
+      description: querypersonhistoryim 查询个人消息
+      parameters:
+      - description: 查询历史信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Querrypersonimhistory'
+      produces:
+      - application/json
+  /querysccuserdetail:
+    post:
+      consumes:
+      - application/json
+      description: querysccuserdetail 查询用户详细信息
+      parameters:
+      - description: 查询用户详细信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Queryuserdetail'
+      produces:
+      - application/json
+  /queryuser:
+    post:
+      consumes:
+      - application/json
+      description: queryuser 查询个人成员详细信息
+      parameters:
+      - description: 查询个人成员详细信息
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Queryuserinfo'
+      produces:
+      - application/json
+  /reportgps:
+    post:
+      consumes:
+      - application/json
+      description: reportgps 上报轨迹
+      parameters:
+      - description: 上报轨迹
+        in: body
+        name: article
+        required: true
+        schema:
+          $ref: '#/definitions/coreservice.Reportgps'
+      produces:
+      - application/json
+swagger: "2.0"

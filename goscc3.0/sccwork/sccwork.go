@@ -154,11 +154,11 @@ func sccquerytemplate(c *gin.Context) {
 		return
 	}
 	if json.Usertype == "1" {
-		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser from scc_worktempplate where creater= '%v'", json.Username)
+		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser,active from scc_worktempplate where creater= '%v'", json.Username)
 		sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateinfo": sqlresult1}})
 	} else if json.Usertype == "2" {
-		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser from scc_worktempplate where templateuser= '%v'", json.Username)
+		sqlcmd1 := fmt.Sprintf("Select workid,templatename,trade,p_type,createtime,approverlist,cclist,creater,templateuser,active from scc_worktempplate where templateuser= '%v'and active=1", json.Username)
 		sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 		c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"templateinfo": sqlresult1}})
 	}
@@ -191,9 +191,9 @@ func scccreateapply(c *gin.Context) {
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd1, false)
 
 	//插入一条到满意统计表
-	sqlcmd3 := fmt.Sprintf("insert into scc_statistica (appid,createtime,comment,commentuser)values(%v,%v,'%v','%v');", appid, time.Now().Unix(), json.Textinfo, json.Username)
+	/*sqlcmd3 := fmt.Sprintf("insert into scc_statistica (appid,createtime,comment,commentuser)values(%v,%v,'%v','%v');", appid, time.Now().Unix(), json.Textinfo, json.Username)
 
-	sccinfo.tmpsql.Execsqlcmd(sqlcmd3, false)
+	sccinfo.tmpsql.Execsqlcmd(sqlcmd3, false)*/
 
 	c.JSON(http.StatusOK, gin.H{"result": "success", "appid": appid})
 }
@@ -339,7 +339,7 @@ func sccqueryapply(c *gin.Context) {
 		{
 
 			//to do
-			sqlcmd := fmt.Sprintf("Select workid from scc_approver where approver= '%v' and approvertype<100", json.Username)
+			sqlcmd := fmt.Sprintf("Select DISTINCT workid from scc_approver where approver= '%v' and approvertype<100", json.Username)
 			sqlresult := sccinfo.tmpsql.SelectData(sqlcmd)
 			if 0 == len(sqlresult) {
 				c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"workflowinfo": sqlresult}})
@@ -349,7 +349,7 @@ func sccqueryapply(c *gin.Context) {
 			for k := range sqlresult {
 				tmpappid, _ := strconv.Atoi(sqlresult[k]["workid"])
 				//sqlcmd1 := fmt.Sprintf("Select appid,templateid,createtime,textinfo,filepath,telephone,creater  from scc_apply where templateid = %v ", tmpappid)
-				sqlcmd1 := fmt.Sprintf("select sc.appid,sc.templateid,sc.createtime,sc.textinfo,sc.filepath,sc.telephone,sc.creater,sc.grade,t2.advise,t2.id,t2.createtime as workflowtime,t2.appcurentnode,t2.appnextnode,t3.templatename from scc_apply sc inner join(select sw.appid,sw.advise,sw.id,sw.createtime,sw.appcurentnode,sw.appnextnode from scc_workflow sw order by id desc) t2 on sc.appid=t2.appid inner join scc_worktempplate t3 on t3.workid=sc.templateid where sc.templateid= %v order by id desc limit 1;", tmpappid)
+				sqlcmd1 := fmt.Sprintf("select sc.appid,sc.templateid,sc.createtime,sc.textinfo,sc.filepath,sc.telephone,sc.creater,sc.grade,t2.advise,t2.id,t2.createtime as workflowtime,t2.appcurentnode,t2.appnextnode,t3.templatename from scc_apply sc inner join(select sw.appid,sw.advise,sw.id,sw.createtime,max(sw.appcurentnode) as appcurentnode,max(sw.appnextnode) as appnextnode from scc_workflow sw  group by sw.appid) t2 on sc.appid=t2.appid inner join scc_worktempplate t3 on t3.workid=sc.templateid where sc.templateid= %v group by sc.appid order by t2.id desc;", tmpappid)
 				sqlresult1 := sccinfo.tmpsql.SelectData(sqlcmd1)
 				//("SSSSSSSSSS", sqlresult1)
 				if 0 != len(sqlresult1) {
@@ -550,6 +550,7 @@ func sccapprove(c *gin.Context) {
 		Status     string `json:"status" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
 		Username   string `json:"username" binding:"required"`
+		Filepath   string `json:"filepath"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -583,11 +584,11 @@ func sccapprove(c *gin.Context) {
 
 		if tmpnextnode >= 100 {
 
-			sqlcmd4 := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 101)
+			sqlcmd4 := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 101, json.Filepath)
 			sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 		} else {
 
-			sqlcmd4 := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 1)
+			sqlcmd4 := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 1, json.Filepath)
 			sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 		}
 
@@ -623,21 +624,24 @@ func sccapprove(c *gin.Context) {
 			//fmt.Println(sqlcmd4)
 			if 0 == len(sqlresult4) {
 				//证明没人审批了 当前此条审批就是最后一条审批
-				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 200)
+				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 200, json.Filepath)
 				sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 			} else {
-				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, tmpnextnode+1)
+				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, tmpnextnode+1, json.Filepath)
 				sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
+
+				sqlcmd5 := fmt.Sprintf("update scc_apply set status=1 where appid = %v;", json.Appid)
+				sccinfo.tmpsql.Execsqlcmd(sqlcmd5, false)
 			}
 		} else {
 			sqlcmd4 := fmt.Sprintf("Select workid from scc_approver where workid= '%v' and approvertype = %v", sqlresult2[0]["templateid"], tmpnextnode+1)
 			sqlresult4 := sccinfo.tmpsql.SelectData(sqlcmd4)
 			if 0 == len(sqlresult4) {
 				//证明没人审批了 当前此条审批就是最后一条审批
-				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 101)
+				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, 101, json.Filepath)
 				sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 			} else {
-				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, tmpnextnode+1)
+				sqlcmd4 = fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, tmpnextnode, tmpnextnode+1, json.Filepath)
 				sccinfo.tmpsql.Execsqlcmd(sqlcmd4, false)
 			}
 		}
@@ -658,13 +662,13 @@ func sccqueryworkflow(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sqlcmd2 := fmt.Sprintf("select appid,createtime,advise,templateid,appcurentnode,appnextnode,id from scc_workflow where appid= '%v'", json.Appid)
+	sqlcmd2 := fmt.Sprintf("select appid,createtime,advise,templateid,appcurentnode,appnextnode,id,filepath from scc_workflow where appid= '%v'", json.Appid)
 	sqlresult2 := sccinfo.tmpsql.SelectData(sqlcmd2)
 
 	sqlcmd3 := fmt.Sprintf("select appid,templateid,createtime,textinfo,filepath,telephone,creater,grade from scc_apply where appid= '%v'", json.Appid)
 	sqlresult3 := sccinfo.tmpsql.SelectData(sqlcmd3)
 
-	sqlcmd4 := fmt.Sprintf("select id,workflowid,createtime,comment,commentuser from scc_comment where appid= '%v'", json.Appid)
+	sqlcmd4 := fmt.Sprintf("select id,workflowid,createtime,comment,commentuser,filepath from scc_comment where appid= '%v'", json.Appid)
 	sqlresult4 := sccinfo.tmpsql.SelectData(sqlcmd4)
 
 	c.JSON(http.StatusOK, gin.H{"result": "success", "data": gin.H{"applinfo": sqlresult3, "workflowinfo": sqlresult2, "commentinfo": sqlresult4}})
@@ -676,6 +680,7 @@ func sccresearchworkflow(c *gin.Context) {
 		Advise     string `json:"advise" binding:"required"`
 		Username   string `json:"username" binding:"required"`
 		Grade      string `json:"grade"`
+		Filepath   string `json:"filepath"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -693,7 +698,7 @@ func sccresearchworkflow(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": "success"})
 		return
 	}
-	sqlcmd := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, 1, 2)
+	sqlcmd := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode,filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, 1, 2, json.Filepath)
 
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
 	if "" != json.Grade {
@@ -710,6 +715,7 @@ func scchandleworkflow(c *gin.Context) {
 		Appid      string `json:"appid" binding:"required"`
 		Advise     string `json:"advise" binding:"required"`
 		Username   string `json:"username" binding:"required"`
+		Filepath   string `json:"filepath"`
 	}
 	//打回直接打回给研究人
 	var json workid
@@ -727,7 +733,7 @@ func scchandleworkflow(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": "success"})
 		return
 	}
-	sqlcmd := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode)values(%v,%v,'%v',%v,%v,%v);", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, 101, 102)
+	sqlcmd := fmt.Sprintf("insert into scc_workflow (appid,createtime,advise,templateid,appcurentnode,appnextnode，filepath)values(%v,%v,'%v',%v,%v,%v,'%v');", json.Appid, time.Now().Unix(), json.Advise, json.Templateid, 101, 102, json.Filepath)
 
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, false)
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
@@ -786,6 +792,7 @@ func sccaddaddcomment(c *gin.Context) {
 		Comment     string `json:"comment" binding:"required"`
 		Appid       string `json:"appid" binding:"required"`
 		Commentuser string `json:"commentuser" binding:"required"`
+		Filepath    string `json:"filepath"`
 	}
 	var json comment
 	// 将request的body中的数据，自动按照json格式解析到结构体
@@ -795,7 +802,13 @@ func sccaddaddcomment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	sqlcmd := fmt.Sprintf("insert into scc_comment (workflowid,createtime,comment,appid,commentuser)values(%v,%v,'%v','%v','%v');", json.Workflowid, time.Now().Unix(), json.Comment, json.Appid, json.Commentuser)
+	tempfilepath := ""
+	if "" == json.Filepath {
+		tempfilepath = " "
+	} else {
+		tempfilepath = json.Filepath
+	}
+	sqlcmd := fmt.Sprintf("insert into scc_comment (workflowid,createtime,comment,appid,commentuser,filepath)values(%v,%v,'%v','%v','%v','%v');", json.Workflowid, time.Now().Unix(), sccsql.MysqlRealEscapeString(json.Comment), json.Appid, json.Commentuser, tempfilepath)
 
 	sccinfo.tmpsql.Execsqlcmd(sqlcmd, true)
 	c.JSON(http.StatusOK, gin.H{"result": "success"})
@@ -824,6 +837,29 @@ func sccaddsatisfaction(c *gin.Context) {
 		return
 	}
 }
+
+func sccscccreatetemplate(c *gin.Context) {
+	type modtemplatework struct {
+		Templateid string `json:"templateid" binding:"required"`
+		Active     string `json:"active" binding:"required"`
+	}
+	var json modtemplatework
+	// 将request的body中的数据，自动按照json格式解析到结构体
+	if err := c.ShouldBindJSON(&json); err != nil {
+		// 返回错误信息
+		// gin.H封装了生成json数据的工具
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	Tmactive := 0
+	if "yes" == json.Active {
+		Tmactive = 1
+	}
+	sqlcmd1 := fmt.Sprintf("update scc_worktempplate set active = '%v' where workid = %v", Tmactive, json.Templateid)
+	sccinfo.tmpsql.Execsqlcmd(sqlcmd1, false)
+	c.JSON(http.StatusOK, gin.H{"result": "success"})
+
+}
 func setrouter(r *gin.Engine) {
 	r.POST("/login", sccworklogin)
 	r.POST("/createtemplate", scccreatetemplate)
@@ -841,4 +877,5 @@ func setrouter(r *gin.Engine) {
 	r.POST("/queryuserinfo", sccqueryuserinfo)
 	r.POST("/addcomment", sccaddaddcomment)
 	r.POST("/addsatisfaction", sccaddsatisfaction)
+	r.POST("/modtemplate", sccscccreatetemplate)
 }
